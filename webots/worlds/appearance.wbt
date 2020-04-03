@@ -1,0 +1,126 @@
+#VRML_SIM R2020a utf8
+WorldInfo {
+  FPS 120
+  gpsCoordinateSystem "WGS84"
+}
+Viewpoint {
+  orientation 0.9503378042545287 -0.305177537140137 -0.061030554886558584 6.03373553566225
+  position 0.41024668263679254 0.44678987792043134 1.9607040964854938
+}
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+WoodenBox {
+  translation -0.205938 0.05 -0.21624
+  size 0.1 0.1 0.1
+}
+Floor {
+  size 1 1
+}
+WoodenBox {
+  translation 0.209269 0.05 -0.276103
+  name "wooden box(1)"
+  size 0.1 0.1 0.1
+}
+WoodenBox {
+  translation -0.0531945 0.05 0.147064
+  name "wooden box(3)"
+  size 0.1 0.1 0.1
+}
+WoodenBox {
+  translation 0.0198655 0.05 -0.158605
+  name "wooden box(5)"
+  size 0.1 0.1 0.1
+}
+WoodenBox {
+  translation -0.242041 0.05 0.265075
+  name "wooden box(2)"
+  size 0.1 0.1 0.1
+}
+WoodenBox {
+  translation 0.242248 0.05 0.107637
+  name "wooden box(4)"
+  size 0.1 0.1 0.1
+}
+E-puck {
+  translation 0.145527 0 0.297019
+  controller "epuck_go_forward"
+}
+Solid {
+  translation 0.142071 0.2 -0.0381277
+  children [
+    Shape {
+      appearance PBRAppearance {
+        roughness 1
+        metalness 0
+      }
+      geometry DEF BALL_GEOMETRY Sphere {
+        radius 0.05
+        subdivision 5
+      }
+    }
+  ]
+  boundingObject USE BALL_GEOMETRY
+  physics Physics {
+  }
+}
+Solid {
+  translation 0 0.2 0
+  children [
+    Shape {
+      appearance PBRAppearance {
+      }
+      geometry USE BALL_GEOMETRY
+    }
+  ]
+  name "solid(1)"
+  boundingObject USE BALL_GEOMETRY
+  physics Physics {
+  }
+}
+DEF WALL1 Solid {
+  translation 0.001 0.025 -0.5
+  children [
+    Shape {
+      appearance PBRAppearance {
+        roughness 1
+        metalness 0
+      }
+      geometry DEF WALL_GEOMETRY Box {
+        size 1 0.05 0.01
+      }
+    }
+  ]
+  name "solid(2)"
+  boundingObject USE WALL_GEOMETRY
+}
+DEF WALL2 Solid {
+  translation -0.5 0.025 0.005
+  rotation 0 1 0 -1.5707953071795862
+  children [
+    Shape {
+      geometry USE WALL_GEOMETRY
+    }
+  ]
+  name "solid(3)"
+}
+DEF WALL3 Solid {
+  translation 0.5 0.025 0.005
+  rotation 0 1 0 -1.57
+  children [
+    Shape {
+      geometry USE WALL_GEOMETRY
+    }
+  ]
+  name "solid(4)"
+}
+DEF WALL4 Solid {
+  translation 0.001 0.025 0.5
+  children [
+    Shape {
+      geometry USE WALL_GEOMETRY
+    }
+  ]
+  name "solid(5)"
+}
