@@ -1,8 +1,11 @@
-"""husky1 controller."""
+""" Controller for ENGR90037 Husky navigation
+    Authors: Evan Thomas evant1@student.unimelb.edu.au
+             Josh Clough cloughj@student.unimelb.edu.au
+     
+    To be executed as a controller within a Webots simulator
+"""
 
-# You may need to import some classes of the controller module. Ex:
-#  from controller import Robot, Motor, DistanceSensor
-from controller import *
+from controller import Robot, Lidar, InertialUnit
 
 # create the Robot instance.
 robot = Robot()
@@ -10,17 +13,28 @@ robot = Robot()
 # get the time step of the current world.
 timestep = int(robot.getBasicTimeStep())
 
+# Import Velodyne LiDAR 
 velodyne = robot.getLidar("Velodyne HDL-32E")
 
-# Turn the Velodyne LiDAR on
+# Import IMU
+imu = robot.getInertialUnit("IMU")
+
+
+# Turn the Velodyne LiDAR on, print some status msgs
 velodyne.enable(timestep)
 velodyne.enablePointCloud()
-print("Point cloud enabled: {}".format(velodyne.isPointCloudEnabled()))
-print("Numer of layers: {}".format(velodyne.getNumberOfLayers()))
-print("Horizontal resolution: {}".format(velodyne.getHorizontalResolution()))
-print("Frequency: {}".format(velodyne.getFrequency()))
+print("LIDAR\tPoint cloud enabled: {}".format(velodyne.isPointCloudEnabled()))
+print("LIDAR\tNumer of layers: {}".format(velodyne.getNumberOfLayers()))
+print("LIDAR\tHorizontal resolution: {}".format(velodyne.getHorizontalResolution()))
+print("LIDAR\tFrequency: {}".format(velodyne.getFrequency()))
+
 # print(velodyne.getNumberOfPoints())
 # print(velodyne.getPointCloud())
+print("-----")
+# Enable IMU
+imu.enable(timestep)
+print("IMU\tSampling period: {}".format(imu.getSamplingPeriod()))
+print(imu.getRollPitchYaw())
 
 # You should insert a getDevice-like function in order to get the
 # instance of a device of the robot. Something like:
