@@ -10,15 +10,15 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <pwd.h>
+#include <unistd.h>
+#include <string.h>
+
 #include <webots/motor.h>
 #include <webots/robot.h>
 // #include <webots/supervisor.h>
 #include <webots/lidar.h>
 #include <webots/gps.h>
-
-static int time_step = 0;
-static WbDeviceTag velodyne;
-static WbDeviceTag gnss;
 
 #define TIME_STEP 64
 #define ROBOT_HEIGHT 1.0 // As to not include points beneath
@@ -31,6 +31,11 @@ double euclidean_dist_from_LiDAR(double x, double y, double z) {
 }
 
 int main(int argc, char **argv) {
+  int time_step = 0;
+  WbDeviceTag velodyne;
+  WbDeviceTag gnss;
+  struct passwd *pw = getpwuid(getuid());  // Get home dir of user
+  const char *userhomedir = pw->pw_dir;    // And assign it here
   // int velodyne_sampling_period = 0;
 
   // Initialise robot
@@ -55,7 +60,7 @@ int main(int argc, char **argv) {
   wb_motor_set_velocity(back_right_wheel, back_right_speed);
   
   // init dynamic variables
-  double left_obstacle = 0.0, right_obstacle = 0.0;
+  // double left_obstacle = 0.0, right_obstacle = 0.0;
 
   // Setup the Velodyne LiDAR
   time_step = wb_robot_get_basic_time_step();
@@ -84,9 +89,14 @@ int main(int argc, char **argv) {
   // printf("%d\n", is_lidar);
   // printf("Point Count %d\n", point_count);
   
+  // Put file in user home dir (linux not sure for windows)
+  FILE *fp;
+  char *filename = "/points.csv";
+  char filepath[100];
+  strcpy(filepath, userhomedir);
+  strcat(filepath, filename);
+  fp = fopen(filepath, "w");
   
-  FILE * fp;
-  fp = fopen("points.csv", "w");
   // Run through the time steps in the robot. Stop if Webots says -1
   while (wb_robot_step(TIME_STEP) != -1) {
   
@@ -108,7 +118,7 @@ int main(int argc, char **argv) {
       gnss_location[i] = *gnss_stream;
       gnss_stream++;
     }
-    printf("%f, %f, %f\n", gnss_location[0], 
+    printf("GNSS: %f, %f, %f\n", gnss_location[0], 
                            gnss_location[1], 
                            gnss_location[2]);    
                            
@@ -123,9 +133,9 @@ int main(int argc, char **argv) {
          double x = point_stream->x;
          double y = point_stream->y;
          double z = point_stream->z;
-        fprintf(fp, "%.2f\t%.2f\t%.2f\t%.2f\t%d\t%.2f\n", 
-                x, y, z, point_stream->time, point_stream->layer_id, 
-                euclidean_dist_from_LiDAR(x, y, z));
+//        fprintf(fp, "%.2f\t%.2f\t%.2f\t%.2f\t%d\t%.2f\n", 
+//                x, y, z, point_stream->time, point_stream->layer_id, 
+//                euclidean_dist_from_LiDAR(x, y, z));
       }
       point_stream++;  // Increment the stream
     }
