@@ -70,10 +70,6 @@ double gaussian(double x, double mu, double sigma) {
 // This function below controls the speed if there are obstacles around
 void updateSpeed() {
 
-    // The idea here was just to print out some timing/GPS data but it seems wrong
-    /*
-    printf("(Timestep) %f (GPS) LAT: %f LON: %f ALT: %f | ", timeStepClient, sub_GPS[0], GPSValues[1], GPSValues[2]);
-    */
 
     // init dynamic variables
   double leftObstacle = 0.0, rightObstacle = 0.0, obstacle = 0.0;
