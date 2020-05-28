@@ -33,8 +33,8 @@
 #define TIME_STEP 32
 #define NMOTORS 4
 #define MAX_SPEED 6.4
-#define OBSTACLE_THRESHOLD 0.05
-#define DECREASE_FACTOR 0.9
+#define OBSTACLE_THRESHOLD 0.1
+#define DECREASE_FACTOR 0.1
 #define BACK_SLOWDOWN 0.9
 
 ros::NodeHandle *n;
@@ -47,7 +47,10 @@ static std::vector<std::string> controllerList;
 ros::ServiceClient timeStepClient;
 webots_ros::set_int timeStepSrv;
 
-static const char *motorNames[NMOTORS] = {"front_left_wheel", "front_right_wheel", "back_left_wheel", "back_right_wheel"};
+static const char *motorNames[NMOTORS] = {"front_left_wheel",
+                                          "front_right_wheel",
+                                          "back_left_wheel",
+                                          "back_right_wheel"};
 
 static double GPSValues[3] = {0, 0, 0};
 static double inertialUnitValues[4] = {0, 0, 0, 0};
@@ -64,8 +67,15 @@ double gaussian(double x, double mu, double sigma) {
   return (1.0 / (sigma * sqrt(2.0 * M_PI))) * exp(-((x - mu) * (x - mu)) / (2 * sigma * sigma));
 }
 
+// This function below controls the speed if there are obstacles around
 void updateSpeed() {
-  // init dynamic variables
+
+    // The idea here was just to print out some timing/GPS data but it seems wrong
+    /*
+    printf("(Timestep) %f (GPS) LAT: %f LON: %f ALT: %f | ", timeStepClient, sub_GPS[0], GPSValues[1], GPSValues[2]);
+    */
+
+    // init dynamic variables
   double leftObstacle = 0.0, rightObstacle = 0.0, obstacle = 0.0;
   double speeds[NMOTORS];
   // apply the braitenberg coefficients on the resulted values of the lms291
@@ -80,6 +90,7 @@ void updateSpeed() {
   }
   // overall front obstacle
   obstacle = leftObstacle + rightObstacle;
+  printf("Obstacles L: %f R: %f T: %f\n", leftObstacle, rightObstacle, obstacle);
   // compute the speed according to the information on
   // obstacles
   if (obstacle > OBSTACLE_THRESHOLD) {
@@ -119,8 +130,8 @@ void broadcastTransform() {
 
 void GPSCallback(const sensor_msgs::NavSatFix::ConstPtr &values) {
   GPSValues[0] = values->latitude;
-  GPSValues[1] = values->altitude;
-  GPSValues[2] = values->longitude;
+  GPSValues[1] = values->longitude;
+  GPSValues[2] = values->altitude;
   broadcastTransform();
 }
 
@@ -135,6 +146,8 @@ void inertialUnitCallback(const sensor_msgs::Imu::ConstPtr &values) {
 void lidarCallback(const sensor_msgs::LaserScan::ConstPtr &scan) {
   int scanSize = scan->ranges.size();
   lidarValues.resize(scanSize);
+//   printf("Scan ranges: %d\n", scan->ranges);
+//   printf("ScanSize: %d\n", scanSize);
   for (int i = 0; i < scanSize; ++i)
     lidarValues[i] = scan->ranges[i];
 
@@ -157,6 +170,18 @@ void controllerNameCallback(const std_msgs::String::ConstPtr &name) {
   controllerCount++;
   controllerList.push_back(name->data);
   ROS_INFO("Controller #%d: %s.", controllerCount, controllerList.back().c_str());
+}
+
+// Callback functions for stereoscopic cameras.
+// Code from https://www.stereolabs.com/docs/ros/video/
+void imageRightRectifiedCallback(const sensor_msgs::Image::ConstPtr& msg) {
+    ROS_INFO("Right Rectified image received from ZED - Size: %dx%d",
+             msg->width, msg->height);
+}
+
+void imageLeftRectifiedCallback(const sensor_msgs::Image::ConstPtr& msg) {
+    ROS_INFO("Left Rectified image received from ZED - Size: %dx%d",
+             msg->width, msg->height);
 }
 
 void quit(int sig) {
@@ -244,9 +269,10 @@ int main(int argc, char **argv) {
     // In a subscribe function, first argument is the topic, second is the queue size for messsages
     // and third is the callback function
     // http://wiki.ros.org/ROS/Tutorials/WritingPublisherSubscriber%28c%2B%2B%29
-    sub_lidar_scan = n->subscribe("husky/Velodyne_HDL32E/laser_scan/layer0", 5000, lidarCallback);
+    sub_lidar_scan = n->subscribe("husky/Velodyne_HDL32E/laser_scan/layer0", 10, lidarCallback);
     ROS_INFO("Topic for lidar initialized.");
     while (sub_lidar_scan.getNumPublishers() == 0) {
+//         printf("Lidar!\n");
     }
     ROS_INFO("Topic for lidar scan connected.");
   } else {
@@ -299,13 +325,49 @@ int main(int argc, char **argv) {
   set_accelerometer_client = n->serviceClient<webots_ros::set_int>("husky/accelerometer/enable");
   accelerometer_srv.request.value = 32;
   set_accelerometer_client.call(accelerometer_srv);
-  // enable camera
+
+
+  // Enable the stereoscopic camera
+  // The subscriber functions are adapted from https://www.stereolabs.com/docs/ros/video/
   ros::ServiceClient set_camera_client;
   webots_ros::set_int camera_srv;
-  ros::Subscriber sub_camera;
-  set_camera_client = n->serviceClient<webots_ros::set_int>("husky/camera/enable");
-  camera_srv.request.value = 64;
-  set_camera_client.call(camera_srv);
+//   ros::Subscriber sub_camera;
+  ros::Subscriber subRightRectified;
+  ros::Subscriber subLeftRectified;
+
+  set_camera_client = n->serviceClient<webots_ros::set_int>("/husky/stereoscopic/left/enable");
+//   camera_srv.request.value = TIME_STEP;
+//   if (timeStepClient.call(camera_srv) && camera_srv.response.success) {
+    ROS_INFO("Camera enabled.");
+
+    //sub_camera_color = n.subscribe(model_name + "/camera/image", 1, cameraCallback);
+    subRightRectified = n->subscribe("/husky/stereoscopic/left/image", 10,
+                                                    imageRightRectifiedCallback);
+    subLeftRectified = n->subscribe("husky/stereoscopic/right/image", 10,
+                                                    imageLeftRectifiedCallback);
+    ROS_INFO("Topic for stereoscopic camera initialised.");
+//   }
+  /*
+   *  while (subRightRectified.getNumPublishers() == 0) {
+      ros::spinOnce();
+      timeStepClient.call(timeStepSrv);
+    }
+    ROS_INFO("Topic for left stereoscopic camera connected.");
+  } else {
+    if (camera_srv.response.success == -1)
+      ROS_ERROR("Sampling period is not valid.");
+    ROS_ERROR("Failed to enable camera.");
+    return 1;
+  }*/
+//   printf("camerasrc %d", set_camera_client.call(camera_srv));
+//   subRightRectified = n->subscribe("husky/stereoscopic/right/image_rect_color", 10,
+//                                                     imageRightRectifiedCallback);
+//   subLeftRectified = n->subscribe("husky/stereoscopic/left/image_rect_color", 10,
+//                                                     imageLeftRectifiedCallback);
+//   printf("Sampling period for camera %d", subRightRectified.getNumPublishers());
+
+
+
   // enable gyro
   ros::ServiceClient set_gyro_client;
   webots_ros::set_int gyro_srv;
@@ -313,10 +375,6 @@ int main(int argc, char **argv) {
   set_gyro_client = n->serviceClient<webots_ros::set_int>("husky/gyro/enable");
   gyro_srv.request.value = 32;
   set_gyro_client.call(gyro_srv);
-
-  ROS_INFO("You can now start the creation of the map using 'rosrun gmapping slam_gmapping "
-           "scan:=/husky/Velodyne_HDL32E/laser_scan/layer0 _xmax:=30 _xmin:=-30 _ymax:=30 _ymin:=-30 _delta:=0.2'.");
-  ROS_INFO("You can now visualize the sensors output in rqt using 'rqt'.");
 
   // main loop
   while (ros::ok()) {

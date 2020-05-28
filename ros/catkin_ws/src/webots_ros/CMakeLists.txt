@@ -242,6 +242,12 @@ target_link_libraries(pioneer3at
 
 add_executable(husky src/husky.cpp)
 
+catkin_install_python(PROGRAMS scripts/talker.py scripts/listener.py scripts/husky_talker.py scripts/husky_listener.py scripts/gpsrecv.py
+	DESTINATION $(CATKIN_PACKAGE_BIN_DESTINATION)
+)
+
+#catkin_python_setup()
+
 add_dependencies(husky webots_ros_generate_messages_cpp)
 
 target_link_libraries(husky
@@ -277,3 +283,4 @@ install(TARGETS pioneer3at
 
 install(DIRECTORY launch
         DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+
