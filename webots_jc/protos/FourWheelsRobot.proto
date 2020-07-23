@@ -1,0 +1,186 @@
+PROTO FourWheelsRobot [
+  field SFVec3f    translation  0 0 0
+  field SFRotation rotation     0 1 0 0
+  field SFFloat    bodyMass     1
+]
+{
+Robot {
+  translation IS translation
+  rotation IS rotation
+  children [
+    DistanceSensor {
+      translation 0.025 0 0.1
+      rotation 0 1 0 -1.2708
+      children [
+        Shape {
+          appearance PBRAppearance {
+            baseColor 0 0 1
+          }
+          geometry DEF SENSOR Box {
+            size 0.01 0.01 0.01
+          }
+        }
+      ]
+      name "ds_right"
+      boundingObject USE SENSOR
+      physics Physics {
+      }
+      lookupTable [
+        0 0 0
+        0.15 1000 0
+      ]
+    }
+    DistanceSensor {
+      translation -0.025 0 0.1
+      rotation 0 1 0 -1.8708
+      children [
+        Shape {
+          appearance PBRAppearance {
+            baseColor 0 0 1
+          }
+          geometry DEF SENSOR Box {
+            size 0.01 0.01 0.01
+          }
+        }
+      ]
+      name "ds_left"
+      boundingObject USE SENSOR
+      physics Physics {
+	    density -1
+        mass IS bodyMass
+      }
+      lookupTable [
+        0 0 0
+        0.15 1000 0
+      ]
+    }
+    HingeJoint {
+      jointParameters HingeJointParameters {
+        anchor 0.06 0 0.05
+      }
+      device [
+        RotationalMotor {
+          name "wheel1"
+        }
+      ]
+      endPoint Solid {
+        translation 0.05999999999848508 1.960946865227353e-06 0.050000000007848704
+        rotation 2.2743702719368807e-13 -2.2741587404682873e-13 0.9999999999999999 1.570799999994518
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0 0.333333 0
+            }
+            geometry DEF WHEEL Cylinder {
+              height 0.02
+              radius 0.04
+            }
+          }
+        ]
+        boundingObject USE WHEEL
+        physics Physics {
+        }
+      }
+    }
+    HingeJoint {
+      jointParameters HingeJointParameters {
+        anchor -0.06 0 0.05
+      }
+      device [
+        RotationalMotor {
+          name "wheel2"
+        }
+      ]
+      endPoint Solid {
+        translation -0.06000000000151349 1.9591291347265116e-06 0.050000000007841446
+        rotation 2.2605827168847066e-13 -2.2603710799376381e-13 0.9999999999999999 1.570799999994517
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0 0.333333 0
+            }
+            geometry DEF WHEEL Cylinder {
+              height 0.02
+              radius 0.04
+            }
+          }
+        ]
+        name "solid(1)"
+        boundingObject USE WHEEL
+        physics Physics {
+        }
+      }
+    }
+    HingeJoint {
+      jointParameters HingeJointParameters {
+        anchor 0.06 0 -0.05
+      }
+      device [
+        RotationalMotor {
+          name "wheel3"
+        }
+      ]
+      endPoint Solid {
+        translation 0.059999999998479055 1.9687948652757914e-06 -0.04999999999211998
+        rotation 2.3264727374974363e-13 -2.3262613835540086e-13 0.9999999999999999 1.5707999999945184
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0 0.333333 0
+            }
+            geometry DEF WHEEL Cylinder {
+              height 0.02
+              radius 0.04
+            }
+          }
+        ]
+        name "solid(2)"
+        boundingObject USE WHEEL
+        physics Physics {
+        }
+      }
+    }
+    HingeJoint {
+      jointParameters HingeJointParameters {
+        anchor -0.06 0 -0.05
+      }
+      device [
+        RotationalMotor {
+          name "wheel4"
+        }
+      ]
+      endPoint Solid {
+        translation -0.06000000000151955 1.966977134761072e-06 -0.04999999999212725
+        rotation 2.316215570443383e-13 -2.3160041186419263e-13 0.9999999999999999 1.5707999999945184
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0 0.333333 0
+            }
+            geometry DEF WHEEL Cylinder {
+              height 0.02
+              radius 0.04
+            }
+          }
+        ]
+        name "solid(3)"
+        boundingObject USE WHEEL
+        physics Physics {
+        }
+      }
+    }
+    Shape {
+      appearance PBRAppearance {
+        baseColor 1 0 0
+      }
+      geometry DEF BODY Box {
+        size 0.1 0.05 0.2
+      }
+    }
+  ]
+  boundingObject USE BODY
+  physics Physics {
+  }
+  controller "four_wheeled_collision_avoidance"
+}
+}
