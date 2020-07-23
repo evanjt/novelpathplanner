@@ -1,11 +1,15 @@
 """pioneer_py controller."""
 
 from controller import Robot, Lidar, GPS, InertialUnit, Camera, RangeFinder
+import csv
+import sys
+from pyproj import Proj, Transformer
+import os
 import math
 
-def gps_offset(gpsPosition):
+def location_offset(position, x, y, z):
 
-    return (gpsPosition[0], gpsPosition[1]-0.2, gpsPosition[2]-0.2)
+    return (position[0]+x, position[1]+z, position[2]+y)
 
 def difference(target, current):
 
@@ -13,7 +17,7 @@ def difference(target, current):
 
 def bearing(displacement):
 
-    initial_bearing = math.degrees(math.atan2(displacement[0],displacement[2]))
+    initial_bearing = math.degrees(math.atan2(displacement[0],displacement[1]))
     compass_bearing = (initial_bearing + 360) % 360
 
     return compass_bearing
@@ -24,89 +28,70 @@ def distance(displacement):
 
 def elevation(displacement, dist):
 
-    return math.asin(displacement[1] / dist)
+    return math.asin(displacement[2] / dist)
+
+# define projection
+CRS_FROM = 4326  # WGS 84
+CRS_TO = 7855  # GDA2020 Z55
+pyproj_transformer = Transformer.from_crs(CRS_FROM, CRS_TO, always_xy=True)
+
+# define home location
+HOME = (144.962, -37.7944, 40)
+HOME_LOCATION = (*pyproj_transformer.transform(HOME[0], HOME[1]), HOME[2])
+TARGET_POSITION = location_offset(HOME_LOCATION, 0, 0, -3) 
 
 # create the Robot instance.
 robot = Robot()
-
-# set robot time step (multiple of world basicTimeStep)
-TIME_STEP = 80
 
 # get the time step of the current world.
 timestep = int(robot.getBasicTimeStep())
 
 # get and enable robot devices
+hokuyoFront = robot.getLidar("HokuyoFront")
+hokuyoRear = robot.getLidar("HokuyoRear")
+hokuyoFront.enable(timestep)
+hokuyoFront.enablePointCloud()
+hokuyoRear.enable(timestep)
+hokuyoRear.enablePointCloud()
 lidar = robot.getLidar('Velodyne HDL-32E')
 lidar.enable(timestep)
+lidar.enablePointCloud()
 gps = robot.getGPS('gps')
 gps.enable(timestep)
 imu = robot.getInertialUnit('imu')
 imu.enable(timestep)
-camera = robot.getCamera('kinect color')
-camera.enable(timestep)
-kinectRange = robot.getRangeFinder('kinect range')
-kinectRange.enable(timestep)
-kinect_width = kinectRange.getWidth()
-kinect_height = kinectRange.getHeight()
-half_width = kinect_width / 2
-view_height = kinect_height / 2 + 10
-min_range = kinectRange.getMinRange()
-max_range = kinectRange.getMaxRange()
-range_threshold = 1.5
-inv_max_range_times_width = 1.0 / (max_range * kinect_width)
+cameraRange = robot.getRangeFinder("MultiSenseS21 meta range finder")
+cameraRange.enable(timestep)
+cameraCenter = robot.getCamera("MultiSenseS21 meta camera")
+cameraCenter.enable(timestep)
+cameraLeft = robot.getCamera("MultiSenseS21 left camera")
+cameraLeft.enable(timestep)
+cameraRight = robot.getCamera("MultiSenseS21 right camera")
+cameraRight.enable(timestep)
 wheels = []
-wheelNames = ['back left wheel', 'back right wheel',
-             'front left wheel', 'front right wheel']
+wheelNames = ['front left wheel', 'front right wheel','back left wheel', 'back right wheel']
 for i in range(4):
     wheels.append(robot.getMotor(wheelNames[i]))
     wheels[i].setPosition(float('inf'))
     wheels[i].setVelocity(0.0)
-
-SPEED = 1.0
-TARGET_POSITION = (1, 0.2, 1)
-
-robot.step(timestep)
-HOME_LOCATION = gps.getValues()
-HOME_ROTATION = imu.getRollPitchYaw()
-
+    
+# start main loop
 while robot.step(timestep) != -1:
 
     # Process sensor data here.
     currentGPSPos = gps.getValues()
-    currentPos = gps_offset(currentGPSPos)
+    utmPos = (*pyproj_transformer.transform(currentGPSPos[0], currentGPSPos[1]), currentGPSPos[2])
+    currentPos = location_offset(utmPos, -0.15, -0.3, 0) 
     displacement = difference(currentPos, TARGET_POSITION)
     currentBearing = (math.degrees(imu.getRollPitchYaw()[2]) + 360) % 360
     bearingToTarget = bearing(displacement)
     DistanceToTarget = distance(displacement)
     ElevationToTarget = elevation(displacement, DistanceToTarget)
 
-    # get range-finder values
-    # kinect_values = kinectRange.getRangeImageArray()
-
-    # for i in range(round(kinect_width)):
-    # record near obstacle sensed on the left side
-        # value = kinectRange.rangeImageGetDepth(kinect_values, round(kinect_width), i, round(view_height))
-        # if value < range_threshold:  # far obstacles are ignored
-            # left_obstacle += value
-            # print(left_obstacle)
-        # record near obstacle sensed on the right side
-        # value = kinectRange.rangeImageGetDepth(kinect_values, round(kinect_width), round(kinect_width) - i, round(view_height))
-        # if value < range_threshold:
-            # right_obstacle += value
-
-    # obstacle = left_obstacle + right_obstacle
-
-    # print(obstacle)
-    # print(currentGPSPos)
-    # print(currentPos)
-    # print(displacement)
-    # print(currentBearing )
-    # print(bearingToTarget)
-    # print(DistanceToTarget)
-
-    if DistanceToTarget < 1.5:
+    # move based on bearing and distance to target
+    if DistanceToTarget < 1:
         print("prepare to map features")
-        newBearing = currentBearing + 90
+        newBearing = (currentBearing + 90 + 360) % 360
         print("new Bearing:", newBearing, currentBearing)
         while robot.step(timestep) != -1:
             currentBearing = (math.degrees(imu.getRollPitchYaw()[2]) + 360) % 360
@@ -120,19 +105,20 @@ while robot.step(timestep) != -1:
                 wheels[3].setVelocity(rightSpeed)
             else:
                 print("Start feature mapping")
-                while robot.step(timestep) != -1: # change to forloop/detect return to starting pos
+                while robot.step(timestep) != -1: # detect return to starting position
                     leftSpeed = 1.0
-                    rightSpeed = 1.0 * 0.3333
+                    rightSpeed = 1.0 * 0.5
 
                     wheels[0].setVelocity(leftSpeed)
                     wheels[1].setVelocity(rightSpeed)
                     wheels[2].setVelocity(leftSpeed)
                     wheels[3].setVelocity(rightSpeed)
-                break
 
                 #return home code
+                break
         break
-    elif abs(bearingToTarget - currentBearing) > 1:
+        
+    elif abs(bearingToTarget - currentBearing) > 1: # update to turn towards correct direction
         leftSpeed = 1.0
         rightSpeed = -1.0
     else:
