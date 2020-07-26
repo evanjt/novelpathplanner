@@ -38,7 +38,12 @@ pyproj_transformer = Transformer.from_crs(CRS_FROM, CRS_TO, always_xy=True)
 # define home location
 HOME = (144.962, -37.7944, 40)
 HOME_LOCATION = (*pyproj_transformer.transform(HOME[0], HOME[1]), HOME[2])
-TARGET_POSITION = location_offset(HOME_LOCATION, 0, 0, -3) 
+TARGET_POSITIONS = [location_offset(HOME_LOCATION, 0, 0, -3), 
+                    location_offset(HOME_LOCATION, 0, 0, 3)]
+
+# define other variables
+MAX_SPEED = 5.24
+OBSTACLE = False
 
 # create the Robot instance.
 robot = Robot()
@@ -74,59 +79,140 @@ for i in range(4):
     wheels.append(robot.getMotor(wheelNames[i]))
     wheels[i].setPosition(float('inf'))
     wheels[i].setVelocity(0.0)
-    
-# start main loop
-while robot.step(timestep) != -1:
 
-    # Process sensor data here.
+# start main loop
+for i in range(len(TARGET_POSITIONS)):
+
+    robot.step(timestep)
     currentGPSPos = gps.getValues()
     utmPos = (*pyproj_transformer.transform(currentGPSPos[0], currentGPSPos[1]), currentGPSPos[2])
     currentPos = location_offset(utmPos, -0.15, -0.3, 0) 
-    displacement = difference(currentPos, TARGET_POSITION)
+    displacement = difference(currentPos, TARGET_POSITIONS[i])
     currentBearing = (math.degrees(imu.getRollPitchYaw()[2]) + 360) % 360
     bearingToTarget = bearing(displacement)
-    DistanceToTarget = distance(displacement)
-    ElevationToTarget = elevation(displacement, DistanceToTarget)
+    
+    while robot.step(timestep) != -1:
 
-    # move based on bearing and distance to target
-    if DistanceToTarget < 1:
-        print("prepare to map features")
-        newBearing = (currentBearing + 90 + 360) % 360
-        print("new Bearing:", newBearing, currentBearing)
-        while robot.step(timestep) != -1:
-            currentBearing = (math.degrees(imu.getRollPitchYaw()[2]) + 360) % 360
-            if abs(newBearing - currentBearing) > 5:
-                leftSpeed = -1.0
-                rightSpeed = 1.0
-
-                wheels[0].setVelocity(leftSpeed)
-                wheels[1].setVelocity(rightSpeed)
-                wheels[2].setVelocity(leftSpeed)
-                wheels[3].setVelocity(rightSpeed)
-            else:
-                print("Start feature mapping")
-                while robot.step(timestep) != -1: # detect return to starting position
-                    leftSpeed = 1.0
-                    rightSpeed = 1.0 * 0.5
-
+        # Process sensor data here.
+        currentGPSPos = gps.getValues()
+        utmPos = (*pyproj_transformer.transform(currentGPSPos[0], currentGPSPos[1]), currentGPSPos[2])
+        currentPos = location_offset(utmPos, -0.15, -0.3, 0) 
+        displacement = difference(currentPos, TARGET_POSITIONS[i])
+        currentBearing = (math.degrees(imu.getRollPitchYaw()[2]) + 360) % 360
+        DistanceToTarget = distance(displacement)
+        # ElevationToTarget = elevation(displacement, DistanceToTarget)
+    
+        # move based on bearing and distance to target
+        if abs(bearingToTarget - currentBearing) > 1 and (bearingToTarget - currentBearing + 360) % 360 > 180:
+            leftSpeed = MAX_SPEED
+            rightSpeed = MAX_SPEED * -1.0
+        elif abs(bearingToTarget - currentBearing) > 1 and (bearingToTarget - currentBearing + 360) % 360 < 180:
+            leftSpeed = MAX_SPEED * -1.0
+            rightSpeed = MAX_SPEED
+        elif DistanceToTarget > 1 and OBSTACLE:
+            # avoid obstacle
+            # <insert Evans hokuyo obstacle avoidance code here>
+            
+            # calculate new bearing to target once obstacle has been avoided
+            bearingToTarget = bearing(displacement)
+        elif DistanceToTarget > 1 and not OBSTACLE:
+            leftSpeed = MAX_SPEED
+            rightSpeed = MAX_SPEED       
+        else:
+            print("prepare to map features")
+            newBearing = (currentBearing + 90 + 360) % 360
+            print("new Bearing:", newBearing, currentBearing)
+            while robot.step(timestep) != -1:
+                currentBearing = (math.degrees(imu.getRollPitchYaw()[2]) + 360) % 360
+                if abs(newBearing - currentBearing) > 1:
+                    leftSpeed = MAX_SPEED * -1.0
+                    rightSpeed = MAX_SPEED
+    
                     wheels[0].setVelocity(leftSpeed)
                     wheels[1].setVelocity(rightSpeed)
                     wheels[2].setVelocity(leftSpeed)
                     wheels[3].setVelocity(rightSpeed)
-
-                #return home code
-                break
-        break
-        
-    elif abs(bearingToTarget - currentBearing) > 1: # update to turn towards correct direction
-        leftSpeed = 1.0
-        rightSpeed = -1.0
-    else:
-        leftSpeed = 1.0
-        rightSpeed = 1.0
-
-    wheels[0].setVelocity(leftSpeed)
-    wheels[1].setVelocity(rightSpeed)
-    wheels[2].setVelocity(leftSpeed)
-    wheels[3].setVelocity(rightSpeed)
+                else:
+                    print("Start feature mapping")
+                    currentGPSPos = gps.getValues()
+                    utmPos = (*pyproj_transformer.transform(currentGPSPos[0], currentGPSPos[1]), currentGPSPos[2])
+                    currentPos = location_offset(utmPos, -0.15, -0.3, 0) 
+                    startingPos = currentPos
+                    hasMoved = False
+                    while robot.step(timestep) != -1:
+                        # Process sensor data here.
+                        currentGPSPos = gps.getValues()
+                        utmPos = (*pyproj_transformer.transform(currentGPSPos[0], currentGPSPos[1]), currentGPSPos[2])
+                        currentPos = location_offset(utmPos, -0.15, -0.3, 0) 
+                        displacement = difference(currentPos, startingPos)
+                        DistanceToStart = distance(displacement)
+                        
+                        if hasMoved and DistanceToStart < 0.05:
+                            if len(TARGET_POSITIONS)-1 == i:
+                                print("Return home")
+                                robot.step(timestep)
+                                currentGPSPos = gps.getValues()
+                                utmPos = (*pyproj_transformer.transform(currentGPSPos[0], currentGPSPos[1]), currentGPSPos[2])
+                                currentPos = location_offset(utmPos, -0.15, -0.3, 0) 
+                                displacement = difference(currentPos, HOME_LOCATION)
+                                bearingToHome = bearing(displacement)
+                                while robot.step(timestep) != -1:
+                                    # Process sensor data here.
+                                    currentGPSPos = gps.getValues()
+                                    utmPos = (*pyproj_transformer.transform(currentGPSPos[0], currentGPSPos[1]), currentGPSPos[2])
+                                    currentPos = location_offset(utmPos, -0.15, -0.3, 0) 
+                                    displacement = difference(currentPos, HOME_LOCATION)
+                                    DistanceToHome = distance(displacement)
+                                    currentBearing = (math.degrees(imu.getRollPitchYaw()[2]) + 360) % 360
+                                    if abs(bearingToHome - currentBearing) > 1 and (bearingToHome - currentBearing + 360) % 360 > 180:
+                                        leftSpeed = MAX_SPEED
+                                        rightSpeed = MAX_SPEED * -1.0
+                                    elif abs(bearingToHome - currentBearing) > 1 and (bearingToHome - currentBearing + 360) % 360 < 180:
+                                        leftSpeed = MAX_SPEED * -1.0
+                                        rightSpeed = MAX_SPEED * 1.0
+                                    elif DistanceToTarget > 1 and OBSTACLE:
+                                        # avoid obstacle
+                                        # <insert Evans hokuyo obstacle avoidance code here>
+                                        
+                                        # calculate new bearing to target once obstacle has been avoided
+                                        bearingToHome = bearing(displacement)
+                                    elif DistanceToHome < 1:
+                                        print("Survey complete")
+                                        leftSpeed = 0
+                                        rightSpeed = 0 
+                                        wheels[0].setVelocity(leftSpeed)
+                                        wheels[1].setVelocity(rightSpeed)
+                                        wheels[2].setVelocity(leftSpeed)
+                                        wheels[3].setVelocity(rightSpeed)
+                                        break
+                                    #need to reset bearing to home every few meters to ensure on correct course                                      
+                                    else:
+                                        leftSpeed = MAX_SPEED
+                                        rightSpeed = MAX_SPEED                                       
+                                    wheels[0].setVelocity(leftSpeed)
+                                    wheels[1].setVelocity(rightSpeed)
+                                    wheels[2].setVelocity(leftSpeed)
+                                    wheels[3].setVelocity(rightSpeed)
+                                break
+                            else:
+                                break
+                        elif not hasMoved and DistanceToStart > 0.05:
+                            hasMoved = True
+                        else:
+                            # instead of speed should map the feature based on range to feature
+                            # should also include obstacle detection when feature mapping
+                            leftSpeed = MAX_SPEED
+                            rightSpeed = MAX_SPEED * 0.5
+    
+                        wheels[0].setVelocity(leftSpeed)
+                        wheels[1].setVelocity(rightSpeed)
+                        wheels[2].setVelocity(leftSpeed)
+                        wheels[3].setVelocity(rightSpeed)
+                    break
+            break
+    
+        wheels[0].setVelocity(leftSpeed)
+        wheels[1].setVelocity(rightSpeed)
+        wheels[2].setVelocity(leftSpeed)
+        wheels[3].setVelocity(rightSpeed)
 
