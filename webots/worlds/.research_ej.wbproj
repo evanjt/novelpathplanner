@@ -1,5 +1,5 @@
 Webots Project File version R2020a
-perspectives: 000000ff00000000fd00000003000000000000000000000000fc0100000001fb0000001a0044006f00630075006d0065006e0074006100740069006f006e0000000000ffffffff0000006900ffffff00000001000002bd000002f5fc0200000001fb0000001400540065007800740045006400690074006f00720100000015000002f50000008700ffffff0000000300000780000000d9fc0100000001fb0000000e0043006f006e0073006f006c00650100000000000007800000006900ffffff000004c1000002f500000001000000020000000100000008fc00000000
+perspectives: 000000ff00000000fd00000003000000000000000000000000fc0100000001fb0000001a0044006f00630075006d0065006e0074006100740069006f006e0000000000ffffffff0000006900ffffff0000000100000300000002f5fc0200000001fb0000001400540065007800740045006400690074006f00720100000015000002f50000008700ffffff0000000300000780000000d9fc0100000001fb0000000e0043006f006e0073006f006c00650100000000000007800000006900ffffff0000047e000002f500000001000000020000000100000008fc00000000
 simulationViewPerspectives: 000000ff0000000100000002000001500000036f0100000002010000000100
 sceneTreePerspectives: 000000ff000000010000000200000248000000fa0100000002010000000200
 maximizedDockId: -1
@@ -8,12 +8,12 @@ selectionDisabled: 0
 viewpointLocked: 0
 orthographicViewHeight: 1
 textFiles: 0 "controllers/pioneer3at/pioneer3at.py"
-renderingDevicePerspectives: Pioneer 3-AT:MultiSenseS21 meta camera;0;0.858398;0;0
-renderingDevicePerspectives: Pioneer 3-AT:stereoscopic meta camera;0;0.391602;0;0
-renderingDevicePerspectives: Pioneer 3-AT:MultiSenseS21 left camera;0;0.858398;0;0
-renderingDevicePerspectives: Pioneer 3-AT:MultiSenseS21 meta range finder;0;0.858398;0;0
-renderingDevicePerspectives: Pioneer 3-AT:displayFront;1;1;0;0
 renderingDevicePerspectives: Pioneer 3-AT:stereoscopic right camera;0;0.490809;0;0
-renderingDevicePerspectives: Pioneer 3-AT:stereoscopic meta range finder;0;0.299632;0;0
+renderingDevicePerspectives: Pioneer 3-AT:MultiSenseS21 right camera;0;0.792969;0;0
 renderingDevicePerspectives: Pioneer 3-AT:stereoscopic left camera;0;0.858398;0;0
-renderingDevicePerspectives: Pioneer 3-AT:MultiSenseS21 right camera;0;0.858398;0;0
+renderingDevicePerspectives: Pioneer 3-AT:stereoscopic meta camera;0;0.391602;0;0
+renderingDevicePerspectives: Pioneer 3-AT:stereoscopic meta range finder;0;0.299632;0;0
+renderingDevicePerspectives: Pioneer 3-AT:MultiSenseS21 meta camera;0;0.792969;0;0
+renderingDevicePerspectives: Pioneer 3-AT:displayFront;0;1.76563;0.0714286;0.130372
+renderingDevicePerspectives: Pioneer 3-AT:MultiSenseS21 left camera;0;0.792969;0;0
+renderingDevicePerspectives: Pioneer 3-AT:MultiSenseS21 meta range finder;0;0.792969;0;0
