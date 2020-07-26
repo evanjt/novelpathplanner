@@ -24,7 +24,7 @@ def robot_position(gps):
       
 def robot_bearing(imu):
 
-    return (math.degrees(imu.getRollPitchYaw()[2]) + 360) % 360
+    return (math.degrees(imu.getRollPitchYaw()[2]) * -1 + 360) % 360 # this is wrong
 
 def target_bearing(current, target):
 
@@ -73,7 +73,9 @@ pyproj_transformer = Transformer.from_crs(CRS_FROM, CRS_TO, always_xy=True)
 HOME = (144.962, -37.7944, 40)
 HOME_LOCATION = (*pyproj_transformer.transform(HOME[0], HOME[1]), HOME[2])
 TARGET_POSITIONS = [location_offset(HOME_LOCATION, 0, 0, -3), 
-                    location_offset(HOME_LOCATION, 0, 0, 3)]
+                    location_offset(HOME_LOCATION, 0, 0, 3),
+                    location_offset(HOME_LOCATION, 3, 0, 0),
+                    location_offset(HOME_LOCATION, -3, 0, 0)]
 
 # define other variables
 MAX_SPEED = 5.24
@@ -130,17 +132,19 @@ for i in range(len(TARGET_POSITIONS)):
         # Continually calculate and update robot position, bearing and distance to target feature
         currentPos = robot_position(gps)
         currentBearing = robot_bearing(imu)
-        targetDistance = target_distance(currentPos, TARGET_POSITIONS[i])     
+        targetDistance = target_distance(currentPos, TARGET_POSITIONS[i])   
+        
+        print(currentBearing, targetBearing, targetDistance)  
     
         # Move the robot based on the bearing and distance to the target feature
         # Once within range set the target bearing to plus 90 degrees ready for mapping
         if abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 > 180:
-            leftSpeed = MAX_SPEED
-            rightSpeed = MAX_SPEED * -1.0
+            leftSpeed = -MAX_SPEED
+            rightSpeed = MAX_SPEED
             
         elif abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 < 180:
-            leftSpeed = MAX_SPEED * -1.0
-            rightSpeed = MAX_SPEED
+            leftSpeed = MAX_SPEED
+            rightSpeed = -MAX_SPEED
             
         elif targetDistance > 1 and OBSTACLE:
             # avoid obstacle
@@ -165,8 +169,8 @@ for i in range(len(TARGET_POSITIONS)):
                 # Move the robot until side on with the target feature
                 # Once side on mark the startingposition of the feature mapping
                 if abs(newBearing - currentBearing) > 1:
-                    leftSpeed = MAX_SPEED * -1.0
-                    rightSpeed = MAX_SPEED
+                    leftSpeed = MAX_SPEED
+                    rightSpeed = -MAX_SPEED
                     set_velocity(wheels, leftSpeed, rightSpeed)
                 
                 else:
@@ -204,12 +208,12 @@ for i in range(len(TARGET_POSITIONS)):
                                     # Move the robot based on the bearing and distance to the home
                                     # Once within home range stop the robot and exit the controller
                                     if abs(bearingToHome - currentBearing) > 1 and (bearingToHome - currentBearing + 360) % 360 > 180:
-                                        leftSpeed = MAX_SPEED
-                                        rightSpeed = MAX_SPEED * -1.0
+                                        leftSpeed = -MAX_SPEED
+                                        rightSpeed = MAX_SPEED
                                         
                                     elif abs(bearingToHome - currentBearing) > 1 and (bearingToHome - currentBearing + 360) % 360 < 180:
-                                        leftSpeed = MAX_SPEED * -1.0
-                                        rightSpeed = MAX_SPEED * 1.0
+                                        leftSpeed = MAX_SPEED
+                                        rightSpeed = -MAX_SPEED 
                                         
                                     elif distanceToHome > 1 and OBSTACLE:
                                         # avoid obstacle
@@ -242,8 +246,8 @@ for i in range(len(TARGET_POSITIONS)):
                             # instead of speed should map the feature based on range to feature
                             # <insert feature mapping code here>
                             # should also incorperate obstacle detection code into feature mapping
-                            leftSpeed = MAX_SPEED
-                            rightSpeed = MAX_SPEED * 0.5
+                            leftSpeed = MAX_SPEED * 0.5
+                            rightSpeed = MAX_SPEED
     
                         set_velocity(wheels, leftSpeed, rightSpeed)
                         
