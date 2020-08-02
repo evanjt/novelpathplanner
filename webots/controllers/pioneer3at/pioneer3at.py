@@ -43,16 +43,20 @@ def prepare_to_map(robot, timestep, imu, newBearing):
         else:
             return
 
-def feature_mapping(robot, timestep, wheels, gps, sensors, threshold):
+def feature_mapping(robot, timestep, wheels, gps, hokuyo, width, threshold):
 
     # alter threshold for sonar offset
-    threshold = threshold - 0.1
+    threshold = threshold
     
     # Calculate starting position
     robot.step(timestep)
     currentPos = robot_position(gps)
     startingPos = currentPos
     hasMoved = False
+    front = 540
+    # front = round(width/2)
+    frontSide = 360
+    side = 180
 
     # Loop for feature mapping
     while robot.step(timestep) != -1:
@@ -60,22 +64,24 @@ def feature_mapping(robot, timestep, wheels, gps, sensors, threshold):
         # Continually calculate and update robot position and distance to feature mapping start point
         currentPos = robot_position(gps)
         distanceToStart = target_distance(currentPos, startingPos)
+        values = hokuyo.getRangeImage()
         
+        print(values[front], values[frontSide], values[side])
         # print(getDistance(sensors[0]), getDistance(sensors[1]))
         
         # Navigate the robot around the feature until it returns to its starting point
-        if hasMoved and distanceToStart < 0.2:
+        if hasMoved and distanceToStart < 0.5:
             return
                 
-        elif not hasMoved and distanceToStart > 0.2:
+        elif not hasMoved and distanceToStart > 0.5:
             hasMoved = True
             
         else:
-            if (getDistance(sensors[0]) < threshold-0.1 or getDistance(sensors[0]) == 5) and (getDistance(sensors[1]) < threshold-0.1 or getDistance(sensors[1]) == 5):
-                set_velocity(wheels, MAX_SPEED*0.5, MAX_SPEED)
+            if values[side] < threshold or values[frontSide] < threshold+0.9:
+                set_velocity(wheels, MAX_SPEED, MAX_SPEED*0.6)
         
-            elif (getDistance(sensors[0]) > threshold+0.1 and getDistance(sensors[0]) != 5) or (getDistance(sensors[1]) > threshold+0.1 and getDistance(sensors[1]) != 5):
-                set_velocity(wheels, MAX_SPEED, MAX_SPEED*0.5)
+            elif values[side] > threshold+0.1 or values[frontSide] > threshold+1:
+                set_velocity(wheels, MAX_SPEED*0.6, MAX_SPEED)
         
             else:
                 set_velocity(wheels, MAX_SPEED, MAX_SPEED)
@@ -116,10 +122,6 @@ def return_home(robot, timestep, wheels, gps, imu):
                                                 
         else:
             set_velocity(wheels, MAX_SPEED, MAX_SPEED)
-
-def getDistance(sensor):
-
-    return ((1000 - sensor.getValue()) / 1000) * 5
     
 def getBraitenberg(robot, width, halfWidth):
 
@@ -152,7 +154,6 @@ def robot_position(gps):
 
     currentGPSPos = gps.getValues()
     utmPos = (*pyproj_transformer.transform(currentGPSPos[0], currentGPSPos[1]), currentGPSPos[2])
-    # currentPos = location_offset(utmPos, -0.15, -0.3, 0)
     currentPos = location_offset(utmPos, 0, 0.2, 0.2)
     
     return currentPos
@@ -233,9 +234,6 @@ hkfHalfWidth = hkfWidth / 2.0
 hkfMaxRange = hokuyoFront.getMaxRange() # 30
 hkfRangeThreshold = hkfMaxRange / 20.0 #1.5
 hkfValues = []
-# print(hkfWidth)
-# print(hkfMaxRange)
-# print(hkfRangeThreshold)
 
 # hokuyoRear = robot.getLidar("HokuyoRear")
 # hokuyoRear.enable(timestep)
@@ -259,13 +257,6 @@ imu.enable(timestep)
 # cameraLeft.enable(timestep)
 # cameraRight = robot.getCamera("MultiSenseS21 right camera")
 # cameraRight.enable(timestep)
-
-sensors = []
-sensorNames = ["so0", "so1", "so2", "so3", "so4", "so5", "so6", "so7", "so8",
-                "so9", "so10", "so11", "so12", "so13", "so14", "so15"]
-for i in range(len(sensorNames)):
-    sensors.append(robot.getDistanceSensor(sensorNames[i]))
-    sensors[i].enable(timestep)
     
 wheels = []
 wheelNames = ['front left wheel', 'front right wheel','back left wheel', 'back right wheel']
@@ -320,11 +311,8 @@ for i in range(len(TARGET_POSITIONS)):
                  
         else:
             prepare_to_map(robot, timestep, imu, (currentBearing + 90 + 360) % 360)
-            feature_mapping(robot, timestep, wheels, gps, sensors, 1)
+            feature_mapping(robot, timestep, wheels, gps, hokuyoFront, hkfWidth, 1.5)
             break
-            
-        leftObstacle = 0.0
-        rightObstacle = 0.0
 
 # Once the survey is complete return home           
 return_home(robot, timestep, wheels, gps, imu)
