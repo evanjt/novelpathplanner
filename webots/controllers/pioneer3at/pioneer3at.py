@@ -28,10 +28,11 @@ def prepare_to_map(robot, timestep, imu, newBearing):
         else:
             return
 
-def cluster_points(array, ransac_threshold=0.95):
+def cluster_points(array, ransac_threshold=0.98):
     # print(array)
     clustering = DBSCAN(eps=0.25, min_samples=10).fit(array)
     count_high_ransac = 0
+    xy_of_inliers = []
     for cluster in np.unique(clustering.labels_):
         if cluster >= 0:
             # Split array into two tables x and y
@@ -57,8 +58,16 @@ def cluster_points(array, ransac_threshold=0.95):
             
             if ransac_score > ransac_threshold:
                 count_high_ransac += 1
-            # print("Cluster #: {} RANSAC Score: {:.2f}".format(cluster, ransac_score))
+                # print(inlier_mask)
+                # print("Cluster #: {} RANSAC Score: {:.2f}".format(cluster, ransac_score))
+                # print(np.hstack((x[inlier_mask], y[inlier_mask])).tolist())
+                
+                # Combine x and y together of the inliers of the cluster, form a list, append
+                xy_of_inliers.append(np.hstack((x[inlier_mask], y[inlier_mask])).tolist())
+                # print(np.hstack((x[inlier_mask], y[inlier_mask])).shape, x.shape, y.shape)
     print("Suitable RANSAC clusters: {}".format(count_high_ransac))
+    return xy_of_inliers
+
         
 def capture_lidar_scene(lidar_device, path='/home/evan/research/simulation-git/lidar/points2.csv'):
     point_list = []
@@ -361,8 +370,12 @@ for i in range(len(TARGET_POSITIONS)):
         if targetDistance > 2 and obstacle > OBSTACLE_THRESHOLD:
             speed_factor = (1.0 - DECREASE_FACTOR * obstacle) * MAX_SPEED / obstacle
             set_velocity2(wheels, speed_factor * leftObstacle, speed_factor * rightObstacle)
+
+            # Capture one scene, cluster the scene, return the xy of clusters
             point_array = capture_lidar_scene(lidar)
-            cluster_points(point_array)
+            xy_clusters = cluster_points(point_array)
+
+            # print(currentBearing, currentPos)
             flag = False
 
         elif obstacle < OBSTACLE_THRESHOLD and flag == False:
