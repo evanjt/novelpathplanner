@@ -7,6 +7,26 @@ from pyproj import Proj, Transformer
 import os
 import math
 
+def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold, maxRange,  braitenbergCoefficients):
+
+    # set obstacle counters
+    leftObstacle = 0.0
+    rightObstacle = 0.0
+    
+    values = hokuyo.getRangeImage()
+    
+    for k in range(math.floor(halfWidth)):
+
+        if values[k] < rangeThreshold:
+            leftObstacle += braitenbergCoefficients[k] * (1.0 - values[k] / maxRange)
+            
+        j = width - k - 1;
+        
+        if values[j] < rangeThreshold:
+            rightObstacle += braitenbergCoefficients[k] * (1.0 - values[j] / maxRange)
+            
+    return leftObstacle, rightObstacle, leftObstacle + rightObstacle
+
 def prepare_to_map(robot, timestep, imu, newBearing):
 
     # Loop for rotating the robot side on with the feature
@@ -101,6 +121,15 @@ def getDistance(sensor):
 
     return ((1000 - sensor.getValue()) / 1000) * 5
     
+def getBraitenberg(robot, width, halfWidth):
+
+    braitenbergCoefficients = []
+    
+    for i in range(math.floor(width)):
+        braitenbergCoefficients.append(gaussian(i, halfWidth, width / 5))
+        
+    return braitenbergCoefficients
+
 def gaussian(x, mu, sigma):
     
     return (1.0 / (sigma * math.sqrt(2.0 * math.pi))) * math.exp(-((x - mu) * (x - mu)) / (2 * sigma * sigma))
@@ -246,13 +275,7 @@ for i in range(4):
     wheels[i].setVelocity(0.0)
 
 # set the Braitenberg coefficient
-braitenbergCoefficients = []
-for i in range(math.floor(hkfWidth)):
-    braitenbergCoefficients.append(gaussian(i, hkfHalfWidth, hkfWidth / 5))
-    
-# set obstacle counters
-leftObstacle = 0.0
-rightObstacle = 0.0
+hkfBraitenbergCoefficients = getBraitenberg(robot, hkfWidth, hkfHalfWidth)
 
 print("Beggining survey of the %.d provided features" %len(TARGET_POSITIONS))
 
@@ -274,25 +297,15 @@ for i in range(len(TARGET_POSITIONS)):
         targetDistance = target_distance(currentPos, TARGET_POSITIONS[i])  
 
         # Continually detect obstacles
-        hkfValues = hokuyoFront.getRangeImage()
-        
-        for k in range(math.floor(hkfHalfWidth)):
-            # print(hkfValues[k])
-            if hkfValues[k] < hkfRangeThreshold:
-                leftObstacle += braitenbergCoefficients[k] * (1.0 - hkfValues[k] / hkfMaxRange)
-            j = hkfWidth - k - 1;
-            if hkfValues[j] < hkfRangeThreshold:
-                rightObstacle += braitenbergCoefficients[k] * (1.0 - hkfValues[j] / hkfMaxRange)
-        obstacle = leftObstacle + rightObstacle
-        # print(obstacle)
+        obstacle = detect_obstacle(robot, hokuyoFront, hkfWidth, hkfHalfWidth, hkfRangeThreshold, hkfMaxRange,  hkfBraitenbergCoefficients)
         
         # Once within range map the feature
-        if targetDistance > 2 and obstacle > OBSTACLE_THRESHOLD:
-            speed_factor = (1.0 - DECREASE_FACTOR * obstacle) * MAX_SPEED / obstacle
-            set_velocity2(wheels, speed_factor * leftObstacle, speed_factor * rightObstacle)
+        if targetDistance > 2 and obstacle[2] > OBSTACLE_THRESHOLD:
+            speed_factor = (1.0 - DECREASE_FACTOR * obstacle[2]) * MAX_SPEED / obstacle[2]
+            set_velocity2(wheels, speed_factor * obstacle[0], speed_factor * obstacle[1])
             flag = False
             
-        elif obstacle < OBSTACLE_THRESHOLD and flag == False:
+        elif obstacle[2] < OBSTACLE_THRESHOLD and flag == False:
             targetBearing = target_bearing(currentPos, TARGET_POSITIONS[i])
             flag = True
         
@@ -302,7 +315,7 @@ for i in range(len(TARGET_POSITIONS)):
         elif abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 < 180:
             set_velocity(wheels, MAX_SPEED, MAX_SPEED*0.5)
             
-        elif targetDistance > 2 and obstacle < OBSTACLE_THRESHOLD:
+        elif targetDistance > 2 and obstacle[2] < OBSTACLE_THRESHOLD:
             set_velocity(wheels, MAX_SPEED, MAX_SPEED)  
                  
         else:
