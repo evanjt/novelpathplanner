@@ -10,7 +10,13 @@ import numpy as np
 from sklearn.cluster import DBSCAN
 from sklearn import linear_model
 
+# ## Some BreezySLAM stuff
+import breezyslam.sensors
+import breezyslam.algorithms
 
+slam_lidar = breezyslam.sensors.Velodyne_webots()
+mapbytes = bytearray(800*800)
+slam = breezyslam.algorithms.RMHC_SLAM(slam_lidar, 800,35)
 
 def prepare_to_map(robot, timestep, imu, newBearing):
 
@@ -74,9 +80,25 @@ def capture_lidar_scene(lidar_device, path='/home/evan/research/simulation-git/l
     # if os.path.exists(path):
         # pass
     # else:
-    # with open(path, 'w') as outfile:
-        # csvwriter = csv.writer(outfile)
-        # csvwriter.writerow(['x','y','z'])
+    
+    with open(path, 'w') as outfile:
+        csvwriter = csv.writer(outfile)
+        scan = 0
+        # print(lidar_device.getHorizontalResolution())
+        # print(len(lidar_device.getRangeImageArray()))
+        scan_list = []
+        for id, row in enumerate(lidar_device.getRangeImage()):
+            # print(row)
+
+            if id != 0 and (id % (lidar_device.getHorizontalResolution())) == 0:
+                scan += 1
+            if scan == 5:
+                # csvwriter.writerow([scan, id, row])
+                scan_list.append(math.ceil(row*1000))
+            # csvwriter.writerow(['x','y','z'])
+    
+    # print(len(lidar_device.getLayerRangeImage(5)))
+    
     for row in lidar_device.getPointCloud():
         if row.y > -0.25 \
         and row.z < 8.0 \
@@ -99,7 +121,7 @@ def capture_lidar_scene(lidar_device, path='/home/evan/research/simulation-git/l
             point_list.append((row.x, row.z))
         # print(point_list)
         # print(np.array(point_list))
-    return np.array(point_list)
+    return np.array(point_list), scan_list
         # return point_sum/(point_count+0.0000001)
     
 
@@ -353,6 +375,7 @@ for i in range(len(TARGET_POSITIONS)):
         currentBearing = robot_bearing(imu)
         targetDistance = target_distance(currentPos, TARGET_POSITIONS[i])
 
+            
         # Continually detect obstacles
         hkfValues = hokuyoFront.getRangeImage()
 
@@ -372,8 +395,18 @@ for i in range(len(TARGET_POSITIONS)):
             set_velocity2(wheels, speed_factor * leftObstacle, speed_factor * rightObstacle)
 
             # Capture one scene, cluster the scene, return the xy of clusters
-            point_array = capture_lidar_scene(lidar)
-            xy_clusters = cluster_points(point_array)
+            point_array, scan_list = capture_lidar_scene(lidar)
+            # xy_clusters = cluster_points(point_array)
+            
+
+            # while True:
+            point_array, scan = capture_lidar_scene(lidar)
+            # scan = readLidar()
+            print(len(scan))
+            slam.update(scan)
+            x, y, theta = slam.getpos()
+            print(x, y, theta)
+            # slam.getmap(mapbytes)
 
             # print(currentBearing, currentPos)
             flag = False
