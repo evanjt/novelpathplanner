@@ -6,28 +6,60 @@ import sys
 from pyproj import Proj, Transformer
 import os
 import math
+import numpy as np
 
 def prepare_to_map(robot, timestep, imu, newBearing):
 
     # Loop for rotating the robot side on with the feature
     while robot.step(timestep) != -1:
-    
+
         # Continually calculate and update robot bearing
         currentBearing = robot_bearing(imu)
-        
+
         # Move the robot until side on with the target feature
         # Once side on mark the startingposition of the feature mapping
         if abs(newBearing - currentBearing) > 1:
             set_velocity(wheels, MAX_SPEED, -MAX_SPEED)
-        
+
         else:
             return
+
+def capture_lidar_scene(lidar_device, path='/home/evan/research/simulation-git/lidar/points2.csv'):
+    point_list = []
+    if os.path.exists(path):
+        pass
+    else:
+        
+        with open(path, 'w') as outfile:
+            csvwriter = csv.writer(outfile)
+            # csvwriter.writerow(['x','y','z'])
+            for row in lidar_device.getPointCloud():
+                if row.y > -0.25 \
+                and row.z < 8.0 \
+                and row.z > -8.0 \
+                and row.x < 8.0 \
+                and row.x > -8.0: # All points above the height of the LiDAR
+                # Calculate unit vector of 2D only, for position
+                # magnitude = math.sqrt(point.x**2 + point.z**2)
+                # u_x = point.x / (magnitude + 0.0000001)
+                # u_z = point.z / (magnitude + 0.0000001)
+                # if u_z > 0.95 and u_z < 1.05 and point.layerid == 8:
+                    # point_sum += point.x
+                    # point_count += 1
+                    # dist = math.sqrt(row.x**2 + row.y**2 + row.z**2)
+                    # csvwriter.writerow([row.time, row.layer_id, row.x, row.y, row.z, dist])
+                    # csvwriter.writerow([row.x, row.y, row.z])
+                    csvwriter.writerow([row.x, row.z])
+                    point_list.append(row.x, row.z)
+    return np.array(point_list)
+        # return point_sum/(point_count+0.0000001)
+    
 
 def feature_mapping(robot, timestep, wheels, gps, sensors, threshold):
 
     # alter threshold for sonar offset
     threshold = threshold - 0.1
-    
+
     # Calculate starting position
     robot.step(timestep)
     currentPos = robot_position(gps)
@@ -36,27 +68,27 @@ def feature_mapping(robot, timestep, wheels, gps, sensors, threshold):
 
     # Loop for feature mapping
     while robot.step(timestep) != -1:
-        
+
         # Continually calculate and update robot position and distance to feature mapping start point
         currentPos = robot_position(gps)
         distanceToStart = target_distance(currentPos, startingPos)
-        
+
         # print(getDistance(sensors[0]), getDistance(sensors[1]))
-        
+
         # Navigate the robot around the feature until it returns to its starting point
         if hasMoved and distanceToStart < 0.2:
             return
-                
+
         elif not hasMoved and distanceToStart > 0.2:
             hasMoved = True
-            
+
         else:
             if (getDistance(sensors[0]) < threshold-0.1 or getDistance(sensors[0]) == 5) and (getDistance(sensors[1]) < threshold-0.1 or getDistance(sensors[1]) == 5):
                 set_velocity(wheels, MAX_SPEED*0.5, MAX_SPEED)
-        
+
             elif (getDistance(sensors[0]) > threshold+0.1 and getDistance(sensors[0]) != 5) or (getDistance(sensors[1]) > threshold+0.1 and getDistance(sensors[1]) != 5):
                 set_velocity(wheels, MAX_SPEED, MAX_SPEED*0.5)
-        
+
             else:
                 set_velocity(wheels, MAX_SPEED, MAX_SPEED)
 
@@ -65,44 +97,44 @@ def return_home(robot, timestep, wheels, gps, imu):
     # Calculate robot position and bearing to home
     robot.step(timestep)
     currentPos = robot_position(gps)
-    bearingToHome = target_bearing(currentPos, HOME_LOCATION) # need to reset bearing to home every few meters to account for error in initial course 
+    bearingToHome = target_bearing(currentPos, HOME_LOCATION) # need to reset bearing to home every few meters to account for error in initial course
 
     # Loop for returning home once the last feature has been mapped
     while robot.step(timestep) != -1:
-        
+
         # Calculate robot position and distance to home
         currentPos = robot_position(gps)
         currentBearing = robot_bearing(imu)
         distanceToHome = target_distance(currentPos, HOME_LOCATION)
-        
+
         # Move the robot based on the bearing and distance to the home
         # Once within home range stop the robot and exit the controller
         if abs(bearingToHome - currentBearing) > 1 and (bearingToHome - currentBearing + 360) % 360 > 180:
             set_velocity(wheels, -MAX_SPEED, MAX_SPEED)
-            
+
         elif abs(bearingToHome - currentBearing) > 1 and (bearingToHome - currentBearing + 360) % 360 < 180:
             set_velocity(wheels, MAX_SPEED, -MAX_SPEED)
-            
+
         elif distanceToHome > 1 and OBSTACLE:
             # avoid obstacle
             # <insert Evans hokuyo obstacle avoidance code here>
             # calculate new bearing to target once obstacle has been avoided
             bearingToHome = target_bearing(currentPos, HOME_LOCATION)
-            
+
         elif distanceToHome < 1:
             print("Survey complete")
             set_velocity(wheels, 0, 0)
             return
-                                                
+
         else:
             set_velocity(wheels, MAX_SPEED, MAX_SPEED)
 
 def getDistance(sensor):
 
     return ((1000 - sensor.getValue()) / 1000) * 5
-    
+
 def gaussian(x, mu, sigma):
-    
+
     return (1.0 / (sigma * math.sqrt(2.0 * math.pi))) * math.exp(-((x - mu) * (x - mu)) / (2 * sigma * sigma))
 
 def set_velocity(wheels, leftSpeed, rightSpeed):
@@ -125,9 +157,9 @@ def robot_position(gps):
     utmPos = (*pyproj_transformer.transform(currentGPSPos[0], currentGPSPos[1]), currentGPSPos[2])
     # currentPos = location_offset(utmPos, -0.15, -0.3, 0)
     currentPos = location_offset(utmPos, 0, 0.2, 0.2)
-    
+
     return currentPos
-      
+
 def robot_bearing(imu):
 
     return (math.degrees(imu.getRollPitchYaw()[2]) * -1 + 360) % 360
@@ -136,14 +168,14 @@ def target_bearing(current, target):
 
     displacement = difference(current, target)
     bearingToTarget = bearing(displacement)
-    
+
     return bearingToTarget
 
 def target_distance(current, target):
 
     displacement = difference(current, target)
     distanceToTarget = distance(displacement)
-    
+
     return distanceToTarget
 
 def location_offset(position, x, y, z):
@@ -178,7 +210,7 @@ pyproj_transformer = Transformer.from_crs(CRS_FROM, CRS_TO, always_xy=True)
 # define home location
 HOME = (144.962, -37.7944, 40)
 HOME_LOCATION = (*pyproj_transformer.transform(HOME[0], HOME[1]), HOME[2])
-TARGET_POSITIONS = [location_offset(HOME_LOCATION, 0, 0, 7), 
+TARGET_POSITIONS = [location_offset(HOME_LOCATION, 0, 0, 7),
                     location_offset(HOME_LOCATION, 0, 0, -7),
                     location_offset(HOME_LOCATION, -7, 0, 0),
                     location_offset(HOME_LOCATION, 7, 0, 0)]
@@ -212,9 +244,9 @@ hkfValues = []
 # hokuyoRear.enable(timestep)
 # hokuyoRear.enablePointCloud()
 
-# lidar = robot.getLidar('Velodyne HDL-32E')
-# lidar.enable(timestep)
-# lidar.enablePointCloud()
+lidar = robot.getLidar('Velodyne HDL-32E')
+lidar.enable(timestep)
+lidar.enablePointCloud()
 
 gps = robot.getGPS('gps')
 gps.enable(timestep)
@@ -237,7 +269,7 @@ sensorNames = ["so0", "so1", "so2", "so3", "so4", "so5", "so6", "so7", "so8",
 for i in range(len(sensorNames)):
     sensors.append(robot.getDistanceSensor(sensorNames[i]))
     sensors[i].enable(timestep)
-    
+
 wheels = []
 wheelNames = ['front left wheel', 'front right wheel','back left wheel', 'back right wheel']
 for i in range(4):
@@ -249,7 +281,7 @@ for i in range(4):
 braitenbergCoefficients = []
 for i in range(math.floor(hkfWidth)):
     braitenbergCoefficients.append(gaussian(i, hkfHalfWidth, hkfWidth / 5))
-    
+
 # set obstacle counters
 leftObstacle = 0.0
 rightObstacle = 0.0
@@ -264,18 +296,18 @@ for i in range(len(TARGET_POSITIONS)):
     currentPos = robot_position(gps)
     targetBearing = target_bearing(currentPos, TARGET_POSITIONS[i]) # need to reset bearing to feature every few meters to account for error in initial course
     flag = False
-    
+
     # Navigate robot to the feature
     while robot.step(timestep) != -1:
-    
+
         # Continually calculate and update robot position, bearing and distance to target feature
         currentPos = robot_position(gps)
         currentBearing = robot_bearing(imu)
-        targetDistance = target_distance(currentPos, TARGET_POSITIONS[i])  
+        targetDistance = target_distance(currentPos, TARGET_POSITIONS[i])
 
         # Continually detect obstacles
         hkfValues = hokuyoFront.getRangeImage()
-        
+
         for k in range(math.floor(hkfHalfWidth)):
             # print(hkfValues[k])
             if hkfValues[k] < hkfRangeThreshold:
@@ -285,33 +317,34 @@ for i in range(len(TARGET_POSITIONS)):
                 rightObstacle += braitenbergCoefficients[k] * (1.0 - hkfValues[j] / hkfMaxRange)
         obstacle = leftObstacle + rightObstacle
         # print(obstacle)
-        
+
         # Once within range map the feature
         if targetDistance > 2 and obstacle > OBSTACLE_THRESHOLD:
             speed_factor = (1.0 - DECREASE_FACTOR * obstacle) * MAX_SPEED / obstacle
             set_velocity2(wheels, speed_factor * leftObstacle, speed_factor * rightObstacle)
+            capture_lidar_scene(lidar)
             flag = False
-            
+
         elif obstacle < OBSTACLE_THRESHOLD and flag == False:
             targetBearing = target_bearing(currentPos, TARGET_POSITIONS[i])
             flag = True
-        
+
         elif abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 > 180:
             set_velocity(wheels, MAX_SPEED*0.5, MAX_SPEED)
-            
+
         elif abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 < 180:
             set_velocity(wheels, MAX_SPEED, MAX_SPEED*0.5)
-            
+
         elif targetDistance > 2 and obstacle < OBSTACLE_THRESHOLD:
-            set_velocity(wheels, MAX_SPEED, MAX_SPEED)  
-                 
+            set_velocity(wheels, MAX_SPEED, MAX_SPEED)
+
         else:
             prepare_to_map(robot, timestep, imu, (currentBearing + 90 + 360) % 360)
             feature_mapping(robot, timestep, wheels, gps, sensors, 1)
             break
-            
+
         leftObstacle = 0.0
         rightObstacle = 0.0
 
-# Once the survey is complete return home           
+# Once the survey is complete return home
 return_home(robot, timestep, wheels, gps, imu)
