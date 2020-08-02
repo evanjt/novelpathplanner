@@ -27,7 +27,7 @@ def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold, maxRange,  
             
     return leftObstacle, rightObstacle, leftObstacle + rightObstacle
 
-def prepare_to_map(robot, timestep, imu, newBearing):
+def prepare_to_map(robot, timestep, imu, targetBearing):
 
     # Loop for rotating the robot side on with the feature
     while robot.step(timestep) != -1:
@@ -37,8 +37,11 @@ def prepare_to_map(robot, timestep, imu, newBearing):
         
         # Move the robot until side on with the target feature
         # Once side on mark the startingposition of the feature mapping
-        if abs(newBearing - currentBearing) > 1:
-            set_velocity(wheels, MAX_SPEED, -MAX_SPEED)
+        if abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 > 180:
+            set_velocity(wheels, MAX_SPEED*0.5, MAX_SPEED)
+            
+        elif abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 < 180:
+            set_velocity(wheels, MAX_SPEED, MAX_SPEED*0.5)
         
         else:
             return
@@ -53,10 +56,9 @@ def feature_mapping(robot, timestep, wheels, gps, hokuyo, width, threshold):
     currentPos = robot_position(gps)
     startingPos = currentPos
     hasMoved = False
-    front = 540
-    # front = round(width/2)
-    frontSide = 360
-    side = 180
+    front = round(width/2)
+    frontSide = round(width/3)
+    side = round(width/6)
 
     # Loop for feature mapping
     while robot.step(timestep) != -1:
@@ -66,14 +68,11 @@ def feature_mapping(robot, timestep, wheels, gps, hokuyo, width, threshold):
         distanceToStart = target_distance(currentPos, startingPos)
         values = hokuyo.getRangeImage()
         
-        print(values[front], values[frontSide], values[side])
-        # print(getDistance(sensors[0]), getDistance(sensors[1]))
-        
         # Navigate the robot around the feature until it returns to its starting point
-        if hasMoved and distanceToStart < 0.5:
+        if hasMoved and distanceToStart < 1:
             return
                 
-        elif not hasMoved and distanceToStart > 0.5:
+        elif not hasMoved and distanceToStart > 1:
             hasMoved = True
             
         else:
@@ -85,43 +84,6 @@ def feature_mapping(robot, timestep, wheels, gps, hokuyo, width, threshold):
         
             else:
                 set_velocity(wheels, MAX_SPEED, MAX_SPEED)
-
-def return_home(robot, timestep, wheels, gps, imu):
-
-    # Calculate robot position and bearing to home
-    robot.step(timestep)
-    currentPos = robot_position(gps)
-    bearingToHome = target_bearing(currentPos, HOME_LOCATION) # need to reset bearing to home every few meters to account for error in initial course 
-
-    # Loop for returning home once the last feature has been mapped
-    while robot.step(timestep) != -1:
-        
-        # Calculate robot position and distance to home
-        currentPos = robot_position(gps)
-        currentBearing = robot_bearing(imu)
-        distanceToHome = target_distance(currentPos, HOME_LOCATION)
-        
-        # Move the robot based on the bearing and distance to the home
-        # Once within home range stop the robot and exit the controller
-        if abs(bearingToHome - currentBearing) > 1 and (bearingToHome - currentBearing + 360) % 360 > 180:
-            set_velocity(wheels, -MAX_SPEED, MAX_SPEED)
-            
-        elif abs(bearingToHome - currentBearing) > 1 and (bearingToHome - currentBearing + 360) % 360 < 180:
-            set_velocity(wheels, MAX_SPEED, -MAX_SPEED)
-            
-        elif distanceToHome > 1 and OBSTACLE:
-            # avoid obstacle
-            # <insert Evans hokuyo obstacle avoidance code here>
-            # calculate new bearing to target once obstacle has been avoided
-            bearingToHome = target_bearing(currentPos, HOME_LOCATION)
-            
-        elif distanceToHome < 1:
-            print("Survey complete")
-            set_velocity(wheels, 0, 0)
-            return
-                                                
-        else:
-            set_velocity(wheels, MAX_SPEED, MAX_SPEED)
     
 def getBraitenberg(robot, width, halfWidth):
 
@@ -211,7 +173,8 @@ HOME_LOCATION = (*pyproj_transformer.transform(HOME[0], HOME[1]), HOME[2])
 TARGET_POSITIONS = [location_offset(HOME_LOCATION, 0, 0, 7), 
                     location_offset(HOME_LOCATION, 0, 0, -7),
                     location_offset(HOME_LOCATION, -7, 0, 0),
-                    location_offset(HOME_LOCATION, 7, 0, 0)]
+                    location_offset(HOME_LOCATION, 7, 0, 0),
+                    HOME_LOCATION]
 
 # define other variables
 MAX_SPEED = 5.24
@@ -268,7 +231,7 @@ for i in range(4):
 # set the Braitenberg coefficient
 hkfBraitenbergCoefficients = getBraitenberg(robot, hkfWidth, hkfHalfWidth)
 
-print("Beggining survey of the %.d provided features" %len(TARGET_POSITIONS))
+print("Beggining survey of the %.d provided features" %(len(TARGET_POSITIONS)-1))
 
 # Loop through the target features provided
 for i in range(len(TARGET_POSITIONS)):
@@ -290,7 +253,7 @@ for i in range(len(TARGET_POSITIONS)):
         # Continually detect obstacles
         obstacle = detect_obstacle(robot, hokuyoFront, hkfWidth, hkfHalfWidth, hkfRangeThreshold, hkfMaxRange,  hkfBraitenbergCoefficients)
         
-        # Once within range map the feature
+        # Once within range map the feature stop once returned home
         if targetDistance > 2 and obstacle[2] > OBSTACLE_THRESHOLD:
             speed_factor = (1.0 - DECREASE_FACTOR * obstacle[2]) * MAX_SPEED / obstacle[2]
             set_velocity2(wheels, speed_factor * obstacle[0], speed_factor * obstacle[1])
@@ -306,13 +269,15 @@ for i in range(len(TARGET_POSITIONS)):
         elif abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 < 180:
             set_velocity(wheels, MAX_SPEED, MAX_SPEED*0.5)
             
-        elif targetDistance > 2 and obstacle[2] < OBSTACLE_THRESHOLD:
-            set_velocity(wheels, MAX_SPEED, MAX_SPEED)  
+        elif targetDistance > 2:
+            set_velocity(wheels, MAX_SPEED, MAX_SPEED)
+            
+        elif i == len(TARGET_POSITIONS)-1:
+            print("Survey complete")
+            set_velocity(wheels, 0, 0)
+            break  
                  
         else:
-            prepare_to_map(robot, timestep, imu, (currentBearing + 90 + 360) % 360)
+            prepare_to_map(robot, timestep, imu, (currentBearing + 90) % 360)
             feature_mapping(robot, timestep, wheels, gps, hokuyoFront, hkfWidth, 1.5)
             break
-
-# Once the survey is complete return home           
-return_home(robot, timestep, wheels, gps, imu)
