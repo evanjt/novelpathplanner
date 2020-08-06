@@ -4,6 +4,7 @@ simulationViewPerspectives: 000000ff00000001000000020000017c00000395010000000201
 sceneTreePerspectives: 000000ff0000000100000002000000c0000000fa0100000002010000000200
 maximizedDockId: -1
 centralWidgetVisible: 1
+renderingMode: PLAIN
 orthographicViewHeight: 1
 textFiles: 0 "controllers/pioneer3at/pioneer3at.py"
 consoles: Console:All:All

@@ -56,18 +56,17 @@ def cluster_points(array, ransac_threshold=0.98):
 def capture_lidar_scene(lidar_device, path='\\Users\\joshc\Documents\\MCENG\\2020\ENGR90038\\simulation\\output\\points2.csv'):
 
     point_list = []
-    # if os.path.exists(path):
-        # pass
-    # else:
     
-    with open(path, 'w') as outfile:
+    with open(path, 'w', newline='') as outfile:
         csvwriter = csv.writer(outfile)
+        # csvwriter.writerow(['time', 'layer_id', 'x','y','z', 'euc_dist'])
+        
         scan = 0
         # print(lidar_device.getHorizontalResolution())
         # print(len(lidar_device.getRangeImageArray()))
         scan_list = []
         
-        robot.step(timestep)
+        # robot.step(timestep)
         for id, row in enumerate(lidar_device.getRangeImage()):
             # print(row)
 
@@ -75,19 +74,17 @@ def capture_lidar_scene(lidar_device, path='\\Users\\joshc\Documents\\MCENG\\202
                 scan += 1
                 
             if scan == 5:
-                # csvwriter.writerow([scan, id, row])
                 scan_list.append(math.ceil(row*1000))
-            # csvwriter.writerow(['x','y','z'])
     
         # print(len(lidar_device.getLayerRangeImage(5)))
         
         for row in lidar_device.getPointCloud():
         
-            if row.y > -0.25 \
-            and row.z < 8.0 \
-            and row.z > -8.0 \
-            and row.x < 8.0 \
-            and row.x > -8.0: # All points above the height of the LiDAR
+            # if row.y > -0.05 : #\
+            # and row.z < 10.0 \
+            # and row.z > -10.0: # \
+            # and row.x < 8.0 \
+            # and row.x > -8.0: # All points above the height of the LiDAR
             # Calculate unit vector of 2D only, for position
             # magnitude = math.sqrt(point.x**2 + point.z**2)
             # u_x = point.x / (magnitude + 0.0000001)
@@ -95,13 +92,13 @@ def capture_lidar_scene(lidar_device, path='\\Users\\joshc\Documents\\MCENG\\202
             # if u_z > 0.95 and u_z < 1.05 and point.layerid == 8:
                 # point_sum += point.x
                 # point_count += 1
-                # dist = math.sqrt(row.x**2 + row.y**2 + row.z**2)
-                # csvwriter.writerow([row.time, row.layer_id, row.x, row.y, row.z, dist])
-                csvwriter.writerow([row.x, row.y, row.z])
-                # print(row.x, row.y)
-                
-                # csvwriter.writerow([row.x, row.z])
-                point_list.append((row.x, row.z))
+            dist = math.sqrt(row.x**2 + row.y**2 + row.z**2)
+            csvwriter.writerow([row.x, row.y, row.z])
+            # csvwriter.writerow([row.x, row.y, row.z])
+            # print(row.x, row.y)
+            
+            # csvwriter.writerow([row.x, row.z])
+            point_list.append((row.x, row.z))
             # print(point_list)
             # print(np.array(point_list))
             
@@ -295,6 +292,9 @@ hkfValues = []
 lidar = robot.getLidar('Velodyne HDL-32E')
 lidar.enable(timestep)
 lidar.enablePointCloud()
+print(lidar.getSamplingPeriod())
+print(lidar.getHorizontalResolution())
+print(math.degrees(lidar.getFov()))
 
 gps = robot.getGPS('gps')
 gps.enable(timestep)
@@ -324,9 +324,10 @@ hkfBraitenbergCoefficients = getBraitenberg(robot, hkfWidth, hkfHalfWidth)
 print("Beggining survey of the %.d provided features" %(len(TARGET_POSITIONS)-1))
 
 # Capture one scene, cluster the scene, return the xy of clusters
-robot.step(timestep)
-point_array, scan_list = capture_lidar_scene(lidar)
-print("Number of points:", point_array.shape)
+# robot.step(timestep)
+# point_array, scan_list = capture_lidar_scene(lidar)
+# print("Number of points:", point_array.shape)
+# print(scan_list)
 # xy_clusters = cluster_points(point_array)
 # features = len(xy_clusters)
 # for i in features:
