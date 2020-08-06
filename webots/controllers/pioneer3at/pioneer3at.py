@@ -46,10 +46,10 @@ def cluster_points(array, ransac_threshold=0.98):
             x, y = subX.reshape(-1,2).T
             x = x.reshape(-1,1)
             y = y.reshape(-1,1)
-            
+
             # lr = linear_model.LinearRegression()
             # lr.fit(x, y)
-            
+
             # Fit a line quickly with RANSAC over the 2D data
 
             # Setup RANSAC with min_samples on total number of points
@@ -61,28 +61,29 @@ def cluster_points(array, ransac_threshold=0.98):
             # Determine fit of line with the same points (not ideal, would be
             # better to split 80/20% dataset and test data with independent data
             ransac_score = ransac.score(x,y)
-            
+
             if ransac_score > ransac_threshold:
                 count_high_ransac += 1
                 # print(inlier_mask)
                 # print("Cluster #: {} RANSAC Score: {:.2f}".format(cluster, ransac_score))
                 # print(np.hstack((x[inlier_mask], y[inlier_mask])).tolist())
-                
+
                 # Combine x and y together of the inliers of the cluster, form a list, append
                 xy_of_inliers.append(np.hstack((x[inlier_mask], y[inlier_mask])).tolist())
                 # print(np.hstack((x[inlier_mask], y[inlier_mask])).shape, x.shape, y.shape)
     print("Suitable RANSAC clusters: {}".format(count_high_ransac))
     return xy_of_inliers
 
-        
-def capture_lidar_scene(lidar_device, path='/home/evan/research/simulation-git/lidar/points2.csv'):
+
+def capture_lidar_scene(lidar_device, path='./lidar_points.csv'):
     point_list = []
     # if os.path.exists(path):
         # pass
     # else:
-    
+
     with open(path, 'w') as outfile:
         csvwriter = csv.writer(outfile)
+        csvwriter.writerow(['time', 'layer_id', 'x','y','z', 'euc_dist'])
         scan = 0
         # print(lidar_device.getHorizontalResolution())
         # print(len(lidar_device.getRangeImageArray()))
@@ -93,37 +94,37 @@ def capture_lidar_scene(lidar_device, path='/home/evan/research/simulation-git/l
             if id != 0 and (id % (lidar_device.getHorizontalResolution())) == 0:
                 scan += 1
             if scan == 5:
-                # csvwriter.writerow([scan, id, row])
                 scan_list.append(math.ceil(row*1000))
-            # csvwriter.writerow(['x','y','z'])
-    
+
+
     # print(len(lidar_device.getLayerRangeImage(5)))
-    
-    for row in lidar_device.getPointCloud():
-        if row.y > -0.25 \
-        and row.z < 8.0 \
-        and row.z > -8.0 \
-        and row.x < 8.0 \
-        and row.x > -8.0: # All points above the height of the LiDAR
-        # Calculate unit vector of 2D only, for position
-        # magnitude = math.sqrt(point.x**2 + point.z**2)
-        # u_x = point.x / (magnitude + 0.0000001)
-        # u_z = point.z / (magnitude + 0.0000001)
-        # if u_z > 0.95 and u_z < 1.05 and point.layerid == 8:
-            # point_sum += point.x
-            # point_count += 1
-            # dist = math.sqrt(row.x**2 + row.y**2 + row.z**2)
-            # csvwriter.writerow([row.time, row.layer_id, row.x, row.y, row.z, dist])
-            # csvwriter.writerow([row.x, row.y, row.z])
-            # print(row.x, row.y)
-            
-            # csvwriter.writerow([row.x, row.z])
-            point_list.append((row.x, row.z))
-        # print(point_list)
-        # print(np.array(point_list))
-    return np.array(point_list), scan_list
-        # return point_sum/(point_count+0.0000001)
-    
+
+        for row in lidar_device.getPointCloud():
+            if row.y > -0.25 \
+            and row.z < 8.0 \
+            and row.z > -8.0 \
+            and row.x < 8.0 \
+            and row.x > -8.0: # All points above the height of the LiDAR
+            # Calculate unit vector of 2D only, for position
+            # magnitude = math.sqrt(point.x**2 + point.z**2)
+            # u_x = point.x / (magnitude + 0.0000001)
+            # u_z = point.z / (magnitude + 0.0000001)
+            # if u_z > 0.95 and u_z < 1.05 and point.layerid == 8:
+                # point_sum += point.x
+                # point_count += 1
+                # dist = math.sqrt(row.x**2 + row.y**2 + row.z**2)
+                csvwriter.writerow(['time', 'layer_id', 'x','y','z', 'euc_dist'])
+                csvwriter.writerow([row.time, row.layer_id, row.x, row.y, row.z, dist])
+                # csvwriter.writerow([row.x, row.y, row.z])
+                # print(row.x, row.y)
+
+                # csvwriter.writerow([row.x, row.z])
+                point_list.append((row.x, row.z))
+            # print(point_list)
+            # print(np.array(point_list))
+        return np.array(point_list), scan_list
+            # return point_sum/(point_count+0.0000001)
+
 
 def feature_mapping(robot, timestep, wheels, gps, sensors, threshold):
 
@@ -375,7 +376,7 @@ for i in range(len(TARGET_POSITIONS)):
         currentBearing = robot_bearing(imu)
         targetDistance = target_distance(currentPos, TARGET_POSITIONS[i])
 
-            
+
         # Continually detect obstacles
         hkfValues = hokuyoFront.getRangeImage()
 
@@ -397,7 +398,7 @@ for i in range(len(TARGET_POSITIONS)):
             # Capture one scene, cluster the scene, return the xy of clusters
             point_array, scan_list = capture_lidar_scene(lidar)
             # xy_clusters = cluster_points(point_array)
-            
+
 
             # while True:
             point_array, scan = capture_lidar_scene(lidar)
