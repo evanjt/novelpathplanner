@@ -10,7 +10,7 @@ from sklearn.cluster import DBSCAN
 from sklearn import linear_model
 
 def cluster_points(array, ransac_threshold=0.98):
-    # print(array)
+
     clustering = DBSCAN(eps=0.25, min_samples=10).fit(array)
     count_high_ransac = 0
     xy_of_inliers = []
@@ -24,11 +24,7 @@ def cluster_points(array, ransac_threshold=0.98):
             x = x.reshape(-1,1)
             y = y.reshape(-1,1)
             
-            # lr = linear_model.LinearRegression()
-            # lr.fit(x, y)
-            
             # Fit a line quickly with RANSAC over the 2D data
-
             # Setup RANSAC with min_samples on total number of points
             ransac = linear_model.RANSACRegressor(min_samples=x.shape[0])
             ransac.fit(x, y)
@@ -59,53 +55,18 @@ def capture_lidar_scene(lidar_device, path='\\Users\\joshc\Documents\\MCENG\\202
     
     with open(path, 'w', newline='') as outfile:
         csvwriter = csv.writer(outfile)
-        # csvwriter.writerow(['time', 'layer_id', 'x','y','z', 'euc_dist'])
         
-        scan = 0
-        # print(lidar_device.getHorizontalResolution())
-        # print(len(lidar_device.getRangeImageArray()))
-        scan_list = []
-        
-        # robot.step(timestep)
-        for id, row in enumerate(lidar_device.getRangeImage()):
-            # print(row)
-
-            if id != 0 and (id % (lidar_device.getHorizontalResolution())) == 0:
-                scan += 1
-                
-            if scan == 5:
-                scan_list.append(math.ceil(row*1000))
-    
-        # print(len(lidar_device.getLayerRangeImage(5)))
-        
-        for row in lidar_device.getPointCloud():
-        
-            # if row.y > -0.05 : #\
-            # and row.z < 10.0 \
-            # and row.z > -10.0: # \
-            # and row.x < 8.0 \
-            # and row.x > -8.0: # All points above the height of the LiDAR
-            # Calculate unit vector of 2D only, for position
-            # magnitude = math.sqrt(point.x**2 + point.z**2)
-            # u_x = point.x / (magnitude + 0.0000001)
-            # u_z = point.z / (magnitude + 0.0000001)
-            # if u_z > 0.95 and u_z < 1.05 and point.layerid == 8:
-                # point_sum += point.x
-                # point_count += 1
-            dist = math.sqrt(row.x**2 + row.y**2 + row.z**2)
-            csvwriter.writerow([row.x, row.y, row.z])
-            # csvwriter.writerow([row.x, row.y, row.z])
-            # print(row.x, row.y)
+        for i in range(4):      
+            robot.step(timestep)
             
-            # csvwriter.writerow([row.x, row.z])
-            point_list.append((row.x, row.z))
-            # print(point_list)
-            # print(np.array(point_list))
+            for row in lidar_device.getPointCloud():          
+                dist = math.sqrt(row.x**2 + row.y**2 + row.z**2)
             
-    return np.array(point_list), scan_list
-        # return point_sum/(point_count+0.0000001)
-
-
+                if row.y > -0.06 and dist < 8:
+                    csvwriter.writerow([row.x, row.y, row.z])
+                    point_list.append((row.x, row.z))
+            
+    return np.array(point_list)
 
 def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold, maxRange,  braitenbergCoefficients):
 
@@ -116,7 +77,6 @@ def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold, maxRange,  
     values = hokuyo.getRangeImage()
     
     for k in range(math.floor(halfWidth)):
-
         if values[k] < rangeThreshold:
             leftObstacle += braitenbergCoefficients[k] * (1.0 - values[k] / maxRange)
             
@@ -267,7 +227,6 @@ TARGET_POSITIONS = [location_offset(HOME_LOCATION, 0, 0, 7),
 MAX_SPEED = 5.24
 OBSTACLE_THRESHOLD = 0.1
 DECREASE_FACTOR = 0.9
-BACK_SLOWDOWN = 0.9
 
 # create the Robot instance.
 robot = Robot()
@@ -292,9 +251,7 @@ hkfValues = []
 lidar = robot.getLidar('Velodyne HDL-32E')
 lidar.enable(timestep)
 lidar.enablePointCloud()
-print(lidar.getSamplingPeriod())
-print(lidar.getHorizontalResolution())
-print(math.degrees(lidar.getFov()))
+lidar.setFrequency(20)
 
 gps = robot.getGPS('gps')
 gps.enable(timestep)
@@ -323,16 +280,14 @@ hkfBraitenbergCoefficients = getBraitenberg(robot, hkfWidth, hkfHalfWidth)
 
 print("Beggining survey of the %.d provided features" %(len(TARGET_POSITIONS)-1))
 
-# Capture one scene, cluster the scene, return the xy of clusters
-# robot.step(timestep)
-# point_array, scan_list = capture_lidar_scene(lidar)
-# print("Number of points:", point_array.shape)
-# print(scan_list)
+# Before beginning survey scan surrounds, cluster the scene, return the xy of clusters for feature mapping
+point_array = capture_lidar_scene(lidar)
+print("Number of points:", point_array.shape)
 # xy_clusters = cluster_points(point_array)
 # features = len(xy_clusters)
-# for i in features:
-    # center = length(i)/2
-    # print(i[center]) # use this as feature points
+# for feature in features:
+    # center = len(feature)/2
+    # print(feature[center]) # use this as feature points
 
 # Loop through the target features provided
 for i in range(len(TARGET_POSITIONS)):
