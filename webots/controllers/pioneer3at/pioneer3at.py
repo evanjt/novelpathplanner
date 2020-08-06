@@ -38,10 +38,10 @@ def prepare_to_map(robot, timestep, imu, targetBearing):
         # Move the robot until side on with the target feature
         # Once side on mark the startingposition of the feature mapping
         if abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 > 180:
-            set_velocity(wheels, MAX_SPEED*0.5, MAX_SPEED)
+            set_velocity(wheels, -MAX_SPEED, MAX_SPEED)
             
         elif abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 < 180:
-            set_velocity(wheels, MAX_SPEED, MAX_SPEED*0.5)
+            set_velocity(wheels, MAX_SPEED, -MAX_SPEED)
         
         else:
             return
@@ -105,18 +105,11 @@ def set_velocity(wheels, leftSpeed, rightSpeed):
     wheels[2].setVelocity(leftSpeed)
     wheels[3].setVelocity(rightSpeed)
 
-def set_velocity2(wheels, leftSpeed, rightSpeed):
-
-    wheels[0].setVelocity(leftSpeed)
-    wheels[1].setVelocity(rightSpeed)
-    wheels[2].setVelocity(BACK_SLOWDOWN * leftSpeed)
-    wheels[3].setVelocity(BACK_SLOWDOWN * rightSpeed)
-
 def robot_position(gps):
 
     currentGPSPos = gps.getValues()
     utmPos = (*pyproj_transformer.transform(currentGPSPos[0], currentGPSPos[1]), currentGPSPos[2])
-    currentPos = location_offset(utmPos, 0, 0.2, 0.2)
+    currentPos = location_offset(utmPos, 0.2, 0.3, 0)
     
     return currentPos
       
@@ -170,6 +163,7 @@ pyproj_transformer = Transformer.from_crs(CRS_FROM, CRS_TO, always_xy=True)
 # define home location
 HOME = (144.962, -37.7944, 40)
 HOME_LOCATION = (*pyproj_transformer.transform(HOME[0], HOME[1]), HOME[2])
+print(HOME_LOCATION)
 TARGET_POSITIONS = [location_offset(HOME_LOCATION, 0, 0, 7), 
                     location_offset(HOME_LOCATION, 0, 0, -7),
                     location_offset(HOME_LOCATION, -7, 0, 0),
@@ -248,18 +242,25 @@ for i in range(len(TARGET_POSITIONS)):
         # Continually calculate and update robot position, bearing and distance to target feature
         currentPos = robot_position(gps)
         currentBearing = robot_bearing(imu)
-        targetDistance = target_distance(currentPos, TARGET_POSITIONS[i])  
+        targetDistance = target_distance(currentPos, TARGET_POSITIONS[i]) 
 
         # Continually detect obstacles
         obstacle = detect_obstacle(robot, hokuyoFront, hkfWidth, hkfHalfWidth, hkfRangeThreshold, hkfMaxRange,  hkfBraitenbergCoefficients)
         
+        print(obstacle[2]) 
+        
         # Once within range map the feature stop once returned home
+        # if targetDistance > 2:
+        
         if targetDistance > 2 and obstacle[2] > OBSTACLE_THRESHOLD:
             speed_factor = (1.0 - DECREASE_FACTOR * obstacle[2]) * MAX_SPEED / obstacle[2]
-            set_velocity2(wheels, speed_factor * obstacle[0], speed_factor * obstacle[1])
-            flag = False
+            set_velocity(wheels, speed_factor * obstacle[0], speed_factor * obstacle[1])
             
-        elif obstacle[2] < OBSTACLE_THRESHOLD and flag == False:
+        elif targetDistance > 2 and obstacle[2] > OBSTACLE_THRESHOLD-0.05:
+            set_velocity(wheels, MAX_SPEED, MAX_SPEED)
+            flag = False
+        
+        elif flag == False:
             targetBearing = target_bearing(currentPos, TARGET_POSITIONS[i])
             flag = True
         
@@ -278,6 +279,8 @@ for i in range(len(TARGET_POSITIONS)):
             break  
                  
         else:
+            print(currentPos, TARGET_POSITIONS[i])
+            print(targetDistance)
             prepare_to_map(robot, timestep, imu, (currentBearing + 90) % 360)
             feature_mapping(robot, timestep, wheels, gps, hokuyoFront, hkfWidth, 1.5)
             break
