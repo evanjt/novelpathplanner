@@ -3,9 +3,112 @@
 from controller import Robot, Lidar, GPS, InertialUnit, Camera, RangeFinder, DistanceSensor
 import csv
 import sys
-from pyproj import Proj, Transformer
 import os
 import math
+import numpy as np
+from sklearn.cluster import DBSCAN
+from sklearn import linear_model
+
+def cluster_points(array, ransac_threshold=0.98):
+    # print(array)
+    clustering = DBSCAN(eps=0.25, min_samples=10).fit(array)
+    count_high_ransac = 0
+    xy_of_inliers = []
+    
+    for cluster in np.unique(clustering.labels_):
+    
+        if cluster >= 0:
+            # Split array into two tables x and y
+            subX = array[clustering.labels_ == cluster]
+            x, y = subX.reshape(-1,2).T
+            x = x.reshape(-1,1)
+            y = y.reshape(-1,1)
+            
+            # lr = linear_model.LinearRegression()
+            # lr.fit(x, y)
+            
+            # Fit a line quickly with RANSAC over the 2D data
+
+            # Setup RANSAC with min_samples on total number of points
+            ransac = linear_model.RANSACRegressor(min_samples=x.shape[0])
+            ransac.fit(x, y)
+            inlier_mask = ransac.inlier_mask_
+            outlier_mask = np.logical_not(inlier_mask)
+
+            # Determine fit of line with the same points (not ideal, would be
+            # better to split 80/20% dataset and test data with independent data
+            ransac_score = ransac.score(x,y)
+            
+            if ransac_score > ransac_threshold:
+                count_high_ransac += 1
+                # print(inlier_mask)
+                # print("Cluster #: {} RANSAC Score: {:.2f}".format(cluster, ransac_score))
+                # print(np.hstack((x[inlier_mask], y[inlier_mask])).tolist())
+                
+                # Combine x and y together of the inliers of the cluster, form a list, append
+                xy_of_inliers.append(np.hstack((x[inlier_mask], y[inlier_mask])).tolist())
+                # print(np.hstack((x[inlier_mask], y[inlier_mask])).shape, x.shape, y.shape)
+                
+    print("Suitable RANSAC clusters: {}".format(count_high_ransac))
+    
+    return xy_of_inliers
+        
+def capture_lidar_scene(lidar_device, path='\\Users\\joshc\Documents\\MCENG\\2020\ENGR90038\\simulation\\output\\points2.csv'):
+
+    point_list = []
+    # if os.path.exists(path):
+        # pass
+    # else:
+    
+    with open(path, 'w') as outfile:
+        csvwriter = csv.writer(outfile)
+        scan = 0
+        # print(lidar_device.getHorizontalResolution())
+        # print(len(lidar_device.getRangeImageArray()))
+        scan_list = []
+        
+        robot.step(timestep)
+        for id, row in enumerate(lidar_device.getRangeImage()):
+            # print(row)
+
+            if id != 0 and (id % (lidar_device.getHorizontalResolution())) == 0:
+                scan += 1
+                
+            if scan == 5:
+                # csvwriter.writerow([scan, id, row])
+                scan_list.append(math.ceil(row*1000))
+            # csvwriter.writerow(['x','y','z'])
+    
+        # print(len(lidar_device.getLayerRangeImage(5)))
+        
+        for row in lidar_device.getPointCloud():
+        
+            if row.y > -0.25 \
+            and row.z < 8.0 \
+            and row.z > -8.0 \
+            and row.x < 8.0 \
+            and row.x > -8.0: # All points above the height of the LiDAR
+            # Calculate unit vector of 2D only, for position
+            # magnitude = math.sqrt(point.x**2 + point.z**2)
+            # u_x = point.x / (magnitude + 0.0000001)
+            # u_z = point.z / (magnitude + 0.0000001)
+            # if u_z > 0.95 and u_z < 1.05 and point.layerid == 8:
+                # point_sum += point.x
+                # point_count += 1
+                # dist = math.sqrt(row.x**2 + row.y**2 + row.z**2)
+                # csvwriter.writerow([row.time, row.layer_id, row.x, row.y, row.z, dist])
+                csvwriter.writerow([row.x, row.y, row.z])
+                # print(row.x, row.y)
+                
+                # csvwriter.writerow([row.x, row.z])
+                point_list.append((row.x, row.z))
+            # print(point_list)
+            # print(np.array(point_list))
+            
+    return np.array(point_list), scan_list
+        # return point_sum/(point_count+0.0000001)
+
+
 
 def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold, maxRange,  braitenbergCoefficients):
 
@@ -108,7 +211,6 @@ def set_velocity(wheels, leftSpeed, rightSpeed):
 def robot_position(gps):
 
     currentGPSPos = gps.getValues()
-    # utmPos = (*pyproj_transformer.transform(currentGPSPos[0], currentGPSPos[1]), currentGPSPos[2])
     currentPos = location_offset(currentGPSPos, 0, -0.3, -0.2)
     
     return currentPos
@@ -155,14 +257,8 @@ def elevation(displacement, dist):
 
     return math.asin(displacement[2] / dist)
 
-# define projection
-# CRS_FROM = 4326  # WGS 84
-# CRS_TO = 7855  # GDA2020 Z55
-# pyproj_transformer = Transformer.from_crs(CRS_FROM, CRS_TO, always_xy=True)
 
 # define home location
-# HOME = (144.962, -37.7944, 40)
-# HOME_LOCATION = (*pyproj_transformer.transform(HOME[0], HOME[1]), HOME[2])
 HOME_LOCATION  =(0, 0, 0)
 TARGET_POSITIONS = [location_offset(HOME_LOCATION, 0, 0, 7), 
                     location_offset(HOME_LOCATION, 0, 0, -7),
@@ -196,9 +292,9 @@ hkfValues = []
 # hokuyoRear.enable(timestep)
 # hokuyoRear.enablePointCloud()
 
-# lidar = robot.getLidar('Velodyne HDL-32E')
-# lidar.enable(timestep)
-# lidar.enablePointCloud()
+lidar = robot.getLidar('Velodyne HDL-32E')
+lidar.enable(timestep)
+lidar.enablePointCloud()
 
 gps = robot.getGPS('gps')
 gps.enable(timestep)
@@ -226,6 +322,16 @@ for i in range(4):
 hkfBraitenbergCoefficients = getBraitenberg(robot, hkfWidth, hkfHalfWidth)
 
 print("Beggining survey of the %.d provided features" %(len(TARGET_POSITIONS)-1))
+
+# Capture one scene, cluster the scene, return the xy of clusters
+robot.step(timestep)
+point_array, scan_list = capture_lidar_scene(lidar)
+print("Number of points:", point_array.shape)
+# xy_clusters = cluster_points(point_array)
+# features = len(xy_clusters)
+# for i in features:
+    # center = length(i)/2
+    # print(i[center]) # use this as feature points
 
 # Loop through the target features provided
 for i in range(len(TARGET_POSITIONS)):
