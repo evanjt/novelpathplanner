@@ -35,7 +35,7 @@ def prepare_to_map(robot, timestep, imu, newBearing):
             return
 
 def cluster_points(array, ransac_threshold=0.98):
-    # print(array)
+    print("Array shape:",array.shape)
     clustering = DBSCAN(eps=0.25, min_samples=10).fit(array)
     count_high_ransac = 0
     xy_of_inliers = []
@@ -113,8 +113,8 @@ def capture_lidar_scene(lidar_device, path='./lidar_points.csv'):
                 # point_sum += point.x
                 # point_count += 1
                 # dist = math.sqrt(row.x**2 + row.y**2 + row.z**2)
-                csvwriter.writerow(['time', 'layer_id', 'x','y','z', 'euc_dist'])
-                csvwriter.writerow([row.time, row.layer_id, row.x, row.y, row.z, dist])
+                # csvwriter.writerow(['time', 'layer_id', 'x','y','z', 'euc_dist'])
+                # csvwriter.writerow([row.time, row.layer_id, row.x, row.y, row.z, dist])
                 # csvwriter.writerow([row.x, row.y, row.z])
                 # print(row.x, row.y)
 
@@ -397,16 +397,16 @@ for i in range(len(TARGET_POSITIONS)):
 
             # Capture one scene, cluster the scene, return the xy of clusters
             point_array, scan_list = capture_lidar_scene(lidar)
-            # xy_clusters = cluster_points(point_array)
+            xy_clusters = cluster_points(point_array)
 
 
             # while True:
-            point_array, scan = capture_lidar_scene(lidar)
+            # point_array, scan = capture_lidar_scene(lidar)
             # scan = readLidar()
-            print(len(scan))
-            slam.update(scan)
-            x, y, theta = slam.getpos()
-            print(x, y, theta)
+            # print(len(scan))
+            # slam.update(scan)
+            # x, y, theta = slam.getpos()
+            # print(x, y, theta)
             # slam.getmap(mapbytes)
 
             # print(currentBearing, currentPos)
