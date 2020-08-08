@@ -6,8 +6,7 @@ import sys
 import os
 import math
 import numpy as np
-from sklearn.cluster import DBSCAN
-from sklearn import linear_model
+
 
 # Project specific functions
 import research.clustering as clust
@@ -75,7 +74,6 @@ with open(os.path.join(OUTPUT_PATH,'features.csv'), 'w', newline='') as outfile:
     csvwriter = csv.writer(outfile)
 
     xy_clusters = clust.cluster_points(point_array)
-
     for feature in xy_clusters:
 
         center = len(feature)/2
@@ -151,6 +149,6 @@ for i in range(len(TARGET_POSITIONS)):
             break
 
         else:
-            prepare_to_map(robot, timestep, imu, (currentBearing + 90) % 360)
+            prepare_to_map(robot, timestep, imu, wheels, (currentBearing + 90) % 360)
             feature_mapping(robot, timestep, wheels, gps, hokuyoFront, hkfWidth, 1.5)
             break

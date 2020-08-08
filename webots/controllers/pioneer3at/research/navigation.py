@@ -1,5 +1,5 @@
 import math
-
+import research.constants as const
 def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold, maxRange,  braitenbergCoefficients):
 
     # set obstacle counters
@@ -19,7 +19,7 @@ def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold, maxRange,  
 
     return leftObstacle, rightObstacle, leftObstacle + rightObstacle
 
-def prepare_to_map(robot, timestep, imu, targetBearing):
+def prepare_to_map(robot, timestep, imu, wheels, targetBearing):
 
     # Loop for rotating the robot side on with the feature
     while robot.step(timestep) != -1:
@@ -30,10 +30,10 @@ def prepare_to_map(robot, timestep, imu, targetBearing):
         # Move the robot until side on with the target feature
         # Once side on mark the startingposition of the feature mapping
         if abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 > 180:
-            set_velocity(wheels, -MAX_SPEED, MAX_SPEED)
+            set_velocity(wheels, -const.MAX_SPEED, const.MAX_SPEED)
 
         elif abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 < 180:
-            set_velocity(wheels, MAX_SPEED, -MAX_SPEED)
+            set_velocity(wheels, const.MAX_SPEED, -const.MAX_SPEED)
 
         else:
             return
@@ -69,13 +69,13 @@ def feature_mapping(robot, timestep, wheels, gps, hokuyo, width, threshold):
 
         else:
             if values[side] < threshold or values[frontSide] < threshold+0.9:
-                set_velocity(wheels, MAX_SPEED, MAX_SPEED*0.6)
+                set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED*0.6)
 
             elif values[side] > threshold+0.1 or values[frontSide] > threshold+1:
-                set_velocity(wheels, MAX_SPEED*0.6, MAX_SPEED)
+                set_velocity(wheels, const.MAX_SPEED*0.6, const.MAX_SPEED)
 
             else:
-                set_velocity(wheels, MAX_SPEED, MAX_SPEED)
+                set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED)
 
 def getBraitenberg(robot, width, halfWidth):
 

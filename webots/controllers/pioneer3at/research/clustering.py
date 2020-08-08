@@ -8,7 +8,7 @@ from research.constants import *
 
 def cluster_points(array, ransac_threshold=0.5):
 
-    clustering = DBSCAN(eps=0.5, min_samples=10).fit(array)
+    clustering = DBSCAN(eps=2, min_samples=5).fit(array)
     count_high_ransac = 0
     xy_of_inliers = []
 
@@ -31,7 +31,7 @@ def cluster_points(array, ransac_threshold=0.5):
             # Determine fit of line with the same points (not ideal, would be
             # better to split 80/20% dataset and test data with independent data
             ransac_score = ransac.score(x,y)
-
+            print(ransac_score)
             if ransac_score > ransac_threshold:
                 count_high_ransac += 1
 
