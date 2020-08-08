@@ -9,9 +9,9 @@ import numpy as np
 from sklearn.cluster import DBSCAN
 from sklearn import linear_model
 
-def cluster_points(array, ransac_threshold=0.98):
+def cluster_points(array, ransac_threshold=0.5):
 
-    clustering = DBSCAN(eps=0.25, min_samples=10).fit(array)
+    clustering = DBSCAN(eps=0.5, min_samples=10).fit(array)
     count_high_ransac = 0
     xy_of_inliers = []
     
@@ -26,7 +26,7 @@ def cluster_points(array, ransac_threshold=0.98):
             
             # Fit a line quickly with RANSAC over the 2D data
             # Setup RANSAC with min_samples on total number of points
-            ransac = linear_model.RANSACRegressor(min_samples=x.shape[0])
+            ransac = linear_model.RANSACRegressor()
             ransac.fit(x, y)
             inlier_mask = ransac.inlier_mask_
             outlier_mask = np.logical_not(inlier_mask)
@@ -37,35 +37,36 @@ def cluster_points(array, ransac_threshold=0.98):
             
             if ransac_score > ransac_threshold:
                 count_high_ransac += 1
-                # print(inlier_mask)
-                # print("Cluster #: {} RANSAC Score: {:.2f}".format(cluster, ransac_score))
-                # print(np.hstack((x[inlier_mask], y[inlier_mask])).tolist())
                 
                 # Combine x and y together of the inliers of the cluster, form a list, append
                 xy_of_inliers.append(np.hstack((x[inlier_mask], y[inlier_mask])).tolist())
-                # print(np.hstack((x[inlier_mask], y[inlier_mask])).shape, x.shape, y.shape)
                 
     print("Suitable RANSAC clusters: {}".format(count_high_ransac))
     
     return xy_of_inliers
         
-def capture_lidar_scene(lidar_device, path='\\Users\\joshc\Documents\\MCENG\\2020\ENGR90038\\simulation\\output\\points2.csv'):
+def capture_lidar_scene(lidar_device, path='\\Users\\joshc\Documents\\MCENG\\2020\ENGR90038\\simulation\\output\\points.csv'):
 
     point_list = []
-    
+
     with open(path, 'w', newline='') as outfile:
         csvwriter = csv.writer(outfile)
         
-        for i in range(4):      
+        for i in range(5):
+               
             robot.step(timestep)
+            cloud = lidar_device.getPointCloud()
             
-            for row in lidar_device.getPointCloud():          
-                dist = math.sqrt(row.x**2 + row.y**2 + row.z**2)
-            
-                if row.y > -0.06 and dist < 8:
-                    csvwriter.writerow([row.x, row.y, row.z])
-                    point_list.append((row.x, row.z))
-            
+        for row in cloud:   
+               
+            dist = math.sqrt(row.x**2 + row.y**2 + row.z**2)
+        
+            if row.y > -0.2 and row.y < 0.8 \
+            and row.x != 0 and row.y != 0 \
+            and dist < 7:
+                csvwriter.writerow([row.x, row.y, row.z])
+                point_list.append((row.x, row.z))
+    
     return np.array(point_list)
 
 def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold, maxRange,  braitenbergCoefficients):
@@ -210,9 +211,16 @@ def distance(displacement):
 
     return math.sqrt((displacement[0])**2 + (displacement[1])**2 + (displacement[2])**2)
 
+
 def elevation(displacement, dist):
 
     return math.asin(displacement[2] / dist)
+    
+def xyDistance(pair1, pair2):
+
+    displacement = pair1[0] - pair2[0], pair1[1] - pair2[1]
+    
+    return math.sqrt((displacement[0])**2 + (displacement[1])**2)
 
 
 # define home location
@@ -281,13 +289,41 @@ hkfBraitenbergCoefficients = getBraitenberg(robot, hkfWidth, hkfHalfWidth)
 print("Beggining survey of the %.d provided features" %(len(TARGET_POSITIONS)-1))
 
 # Before beginning survey scan surrounds, cluster the scene, return the xy of clusters for feature mapping
+roughFeatureList = []
+featureList = []
 point_array = capture_lidar_scene(lidar)
-print("Number of points:", point_array.shape)
-# xy_clusters = cluster_points(point_array)
-# features = len(xy_clusters)
-# for feature in features:
-    # center = len(feature)/2
-    # print(feature[center]) # use this as feature points
+
+with open('\\Users\\joshc\Documents\\MCENG\\2020\ENGR90038\\simulation\\output\\features.csv', 'w', newline='') as outfile:
+    csvwriter = csv.writer(outfile)
+    
+    xy_clusters = cluster_points(point_array)
+    
+    for feature in xy_clusters:
+    
+        center = len(feature)/2
+        roughFeatureList.append(feature[round(center)])
+        
+        for pair in feature:
+        
+            pair.append(0.5)
+            csvwriter.writerow(pair)
+
+    for roughPair in roughFeatureList:
+    
+        if len(featureList) == 0:
+            featureList.append(roughPair)
+            
+        else:
+        
+            for i, finalPair in enumerate(featureList):
+            
+                if xyDistance(roughPair, finalPair) < 0.1:
+                    break
+                elif i == len(featureList)-1:
+                    featureList.append(roughPair)
+                    csvwriter.writerow(roughPair)
+                
+print(featureList)
 
 # Loop through the target features provided
 for i in range(len(TARGET_POSITIONS)):
