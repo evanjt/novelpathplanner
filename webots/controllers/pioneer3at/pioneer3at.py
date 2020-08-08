@@ -63,7 +63,9 @@ for i in range(4):
 # set the Braitenberg coefficient
 hkfBraitenbergCoefficients = getBraitenberg(robot, hkfWidth, hkfHalfWidth)
 
-print("Beggining survey of the %.d provided features" %(len(TARGET_POSITIONS)-1))
+print("Pioneer is scanning surrounding area for features")
+
+#wrap the below in a for loop based on user response to move and scan a new area
 
 # Before beginning survey scan surrounds, cluster the scene, return the xy of clusters for feature mapping
 roughFeatureList = []
@@ -73,33 +75,44 @@ point_array = clust.capture_lidar_scene(robot, lidar, timestep)
 with open(os.path.join(OUTPUT_PATH,'features.csv'), 'w', newline='') as outfile:
     csvwriter = csv.writer(outfile)
 
-    xy_clusters = clust.cluster_points(point_array)
-    for feature in xy_clusters:
+    features = clust.cluster_points(point_array)
+    
+    for feature in features:
 
         center = len(feature)/2
         roughFeatureList.append(feature[round(center)])
-
+        
         for pair in feature:
-
-            pair.append(0.5)
+        
+            pair.insert(1,0.1)
             csvwriter.writerow(pair)
 
     for roughPair in roughFeatureList:
-
+    
         if len(featureList) == 0:
             featureList.append(roughPair)
-
+            
         else:
-
+        
             for i, finalPair in enumerate(featureList):
-
+            
                 if xyDistance(roughPair, finalPair) < 0.1:
                     break
+                    
                 elif i == len(featureList)-1:
                     featureList.append(roughPair)
                     csvwriter.writerow(roughPair)
+                    
+    for ind, val in enumerate(featureList):
+        TARGET_POSITIONS.insert(ind, val) # need to re-order based on dist at each step
 
-print(featureList)
+with open(os.path.join(OUTPUT_PATH,'featurePoints.csv'), 'w', newline='') as outfile:
+    csvwriter = csv.writer(outfile)
+    
+    for i in TARGET_POSITIONS:
+        csvwriter.writerow(i)
+                  
+print("%.d features found \nBeggining survey" %(len(TARGET_POSITIONS)-1))
 
 # Loop through the target features provided
 for i in range(len(TARGET_POSITIONS)):
@@ -122,11 +135,11 @@ for i in range(len(TARGET_POSITIONS)):
         obstacle = detect_obstacle(robot, hokuyoFront, hkfWidth, hkfHalfWidth, hkfRangeThreshold, hkfMaxRange,  hkfBraitenbergCoefficients)
 
         # Once within range map the feature stop once returned home
-        if targetDistance > 3 and obstacle[2] > OBSTACLE_THRESHOLD:
+        if targetDistance > 2 and obstacle[2] > OBSTACLE_THRESHOLD:
             speed_factor = (1.0 - DECREASE_FACTOR * obstacle[2]) * MAX_SPEED / obstacle[2]
             set_velocity(wheels, speed_factor * obstacle[0], speed_factor * obstacle[1])
 
-        elif targetDistance > 3 and obstacle[2] > OBSTACLE_THRESHOLD-0.05:
+        elif targetDistance > 2 and obstacle[2] > OBSTACLE_THRESHOLD-0.05:
             set_velocity(wheels, MAX_SPEED, MAX_SPEED)
             flag = False
 
@@ -134,13 +147,13 @@ for i in range(len(TARGET_POSITIONS)):
             targetBearing = target_bearing(currentPos, TARGET_POSITIONS[i])
             flag = True
 
-        elif targetDistance > 3 and abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 > 180:
+        elif targetDistance > 2 and abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 > 180:
             set_velocity(wheels, MAX_SPEED*0.5, MAX_SPEED)
 
-        elif targetDistance > 3 and abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 < 180:
+        elif targetDistance > 2 and abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 < 180:
             set_velocity(wheels, MAX_SPEED, MAX_SPEED*0.5)
 
-        elif targetDistance > 3:
+        elif targetDistance > 2:
             set_velocity(wheels, MAX_SPEED, MAX_SPEED)
 
         elif i == len(TARGET_POSITIONS)-1:
@@ -150,5 +163,5 @@ for i in range(len(TARGET_POSITIONS)):
 
         else:
             prepare_to_map(robot, timestep, imu, wheels, (currentBearing + 90) % 360)
-            feature_mapping(robot, timestep, wheels, gps, hokuyoFront, hkfWidth, 1.5)
+            feature_mapping(robot, timestep, wheels, gps, hokuyoFront, hkfWidth, 2)
             break

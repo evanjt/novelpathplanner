@@ -1,5 +1,6 @@
 import math
 import research.constants as const
+
 def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold, maxRange,  braitenbergCoefficients):
 
     # set obstacle counters
