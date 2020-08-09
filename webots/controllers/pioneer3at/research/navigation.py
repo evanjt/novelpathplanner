@@ -19,8 +19,10 @@ def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold,
     leftObstacle = 0.0
     rightObstacle = 0.0
 
+    # scan using the Hokuyo
     values = hokuyo.getRangeImage()
 
+    # detect obstacle scores based on Braitenberg coefficients
     for k in range(math.floor(halfWidth)):
         if values[k] < rangeThreshold:
             leftObstacle += braitenbergCoefficients[k] \
@@ -59,8 +61,11 @@ def prepare_to_map(robot, timestep, imu, wheels, targetBearing):
 
 def feature_mapping(robot, timestep, wheels, gps, hokuyo, width, threshold):
 
-    # alter threshold for sonar offset
+    # calculate thresholds for sonar offset
     threshold = threshold
+    thresholdBuffer = threshold + 0.1
+    frontSideThreshold = math.sqrt(threshold)
+    frontSideThresholdBuffer = frontSideThreshold + 0.1
 
     # Calculate starting position
     robot.step(timestep)
@@ -89,11 +94,12 @@ def feature_mapping(robot, timestep, wheels, gps, hokuyo, width, threshold):
             hasMoved = True
 
         else:
-            if values[side] < threshold or values[frontSide] < threshold+0.9:
+            if values[side] < threshold \
+                    or values[frontSide] < frontSideThreshold:
                 set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED*0.6)
 
-            elif values[side] > threshold+0.1 \
-                    or values[frontSide] > threshold+1:
+            elif values[side] > thresholdBuffer \
+                    or values[frontSide] > frontSideThresholdBuffer:
                 set_velocity(wheels, const.MAX_SPEED*0.6, const.MAX_SPEED)
 
             else:
