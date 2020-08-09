@@ -63,64 +63,23 @@ for i in range(4):
 # set the Braitenberg coefficient
 hkfBraitenbergCoefficients = getBraitenberg(robot, hkfWidth, hkfHalfWidth)
 
+# wrap the below in a for loop based on user response to move and scan a new area
+# remove HOME_LOCATION const and replace with user-entered variable
+
 print("Pioneer is scanning surrounding area for features")
 
-#wrap the below in a for loop based on user response to move and scan a new area
+targets = clust.get_targets(robot, timestep, lidar)
+mappingDistance = 2 # Need to calculate based on feature height - need to do dbscan in 3d for this and return feature points and feature heights
 
-# Before beginning survey scan surrounds, cluster the scene, return the xy of clusters for feature mapping
-roughFeatureList = []
-featureList = []
-point_array = clust.capture_lidar_scene(robot, lidar, timestep)
-
-with open(os.path.join(OUTPUT_PATH,'features.csv'), 'w', newline='') as outfile:
-    csvwriter = csv.writer(outfile)
-
-    features = clust.cluster_points(point_array)
-    
-    for feature in features:
-
-        center = len(feature)/2
-        roughFeatureList.append(feature[round(center)])
-        
-        for pair in feature:
-        
-            pair.insert(1,0.1)
-            csvwriter.writerow(pair)
-
-    for roughPair in roughFeatureList:
-    
-        if len(featureList) == 0:
-            featureList.append(roughPair)
-            
-        else:
-        
-            for i, finalPair in enumerate(featureList):
-            
-                if xyDistance(roughPair, finalPair) < 0.1:
-                    break
-                    
-                elif i == len(featureList)-1:
-                    featureList.append(roughPair)
-                    csvwriter.writerow(roughPair)
-                    
-    for ind, val in enumerate(featureList):
-        TARGET_POSITIONS.insert(ind, val) # need to re-order based on dist at each step
-
-with open(os.path.join(OUTPUT_PATH,'featurePoints.csv'), 'w', newline='') as outfile:
-    csvwriter = csv.writer(outfile)
-    
-    for i in TARGET_POSITIONS:
-        csvwriter.writerow(i)
-                  
-print("%.d features found \nBeggining survey" %(len(TARGET_POSITIONS)-1))
+print("%d features found \nBeginning survey", len(targets)-1)
 
 # Loop through the target features provided
-for i in range(len(TARGET_POSITIONS)):
+for i in range(len(targets)):
 
     # Calculate initial bearing to target feature
     robot.step(timestep)
     currentPos = robot_position(gps)
-    targetBearing = target_bearing(currentPos, TARGET_POSITIONS[i]) # need to reset bearing to feature every few meters to account for error in initial course
+    targetBearing = target_bearing(currentPos, targets[i]) # need to reset bearing to feature every few meters to account for error in initial course
     flag = False
 
     # Navigate robot to the feature
@@ -129,39 +88,39 @@ for i in range(len(TARGET_POSITIONS)):
         # Continually calculate and update robot position, bearing and distance to target feature
         currentPos = robot_position(gps)
         currentBearing = robot_bearing(imu)
-        targetDistance = target_distance(currentPos, TARGET_POSITIONS[i])
+        targetDistance = target_distance(currentPos, targets[i])
 
         # Continually detect obstacles
         obstacle = detect_obstacle(robot, hokuyoFront, hkfWidth, hkfHalfWidth, hkfRangeThreshold, hkfMaxRange,  hkfBraitenbergCoefficients)
 
-        # Once within range map the feature stop once returned home
-        if targetDistance > 2 and obstacle[2] > OBSTACLE_THRESHOLD:
+        # Once within range map the feature, stop once returned home
+        if targetDistance > mappingDistance and obstacle[2] > OBSTACLE_THRESHOLD:
             speed_factor = (1.0 - DECREASE_FACTOR * obstacle[2]) * MAX_SPEED / obstacle[2]
             set_velocity(wheels, speed_factor * obstacle[0], speed_factor * obstacle[1])
 
-        elif targetDistance > 2 and obstacle[2] > OBSTACLE_THRESHOLD-0.05:
+        elif targetDistance > mappingDistance and obstacle[2] > OBSTACLE_THRESHOLD-0.05:
             set_velocity(wheels, MAX_SPEED, MAX_SPEED)
             flag = False
 
         elif flag == False:
-            targetBearing = target_bearing(currentPos, TARGET_POSITIONS[i])
+            targetBearing = target_bearing(currentPos, targets[i])
             flag = True
 
-        elif targetDistance > 2 and abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 > 180:
+        elif targetDistance > mappingDistance and abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 > 180:
             set_velocity(wheels, MAX_SPEED*0.5, MAX_SPEED)
 
-        elif targetDistance > 2 and abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 < 180:
+        elif targetDistance > mappingDistance and abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 < 180:
             set_velocity(wheels, MAX_SPEED, MAX_SPEED*0.5)
 
-        elif targetDistance > 2:
+        elif targetDistance > mappingDistance:
             set_velocity(wheels, MAX_SPEED, MAX_SPEED)
 
-        elif i == len(TARGET_POSITIONS)-1:
+        elif i == len(targets)-1:
             print("Survey complete")
             set_velocity(wheels, 0, 0)
             break
 
         else:
-            prepare_to_map(robot, timestep, imu, wheels, (currentBearing + 90) % 360)
-            feature_mapping(robot, timestep, wheels, gps, hokuyoFront, hkfWidth, 2)
+            prepare_to_map(robot, timestep, imu, wheels, (currentBearing + 90) % 360) # change function to be on right angle with feature, need to obtain the bearing of the feature plane to do this
+            feature_mapping(robot, timestep, wheels, gps, hokuyoFront, hkfWidth, mappingDistance)
             break

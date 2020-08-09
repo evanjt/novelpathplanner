@@ -7,13 +7,15 @@ def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold, maxRange,  
     leftObstacle = 0.0
     rightObstacle = 0.0
 
+    # scan using the Hokuyo
     values = hokuyo.getRangeImage()
 
+    # detect obstacle scores based on Braitenberg coefficients
     for k in range(math.floor(halfWidth)):
         if values[k] < rangeThreshold:
             leftObstacle += braitenbergCoefficients[k] * (1.0 - values[k] / maxRange)
 
-        j = width - k - 1;
+        j = width - k - 1
 
         if values[j] < rangeThreshold:
             rightObstacle += braitenbergCoefficients[k] * (1.0 - values[j] / maxRange)

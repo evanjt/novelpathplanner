@@ -3,7 +3,6 @@ from research.navigation import location_offset
 ## CONSTANTS
 # define home location
 HOME_LOCATION  =[0, 0, 0]
-TARGET_POSITIONS = [HOME_LOCATION]
 
 # define other variables
 MAX_SPEED = 5.24
