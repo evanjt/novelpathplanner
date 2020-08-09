@@ -1,4 +1,11 @@
 #!/usr/bin/python3
+'''
+    Code related to clustering methods for the use of the pioneer3at
+    controller in webots.
+
+    Authors:    Josh Clough
+                Evan Thomas
+'''
 
 import os
 import csv
@@ -28,7 +35,8 @@ def cluster_points(array):
 
             xy_of_inliers.append(np.hstack((x, y)).tolist())
 
-            maxval = max(map(max, euclidean_distances(xy_of_inliers[cluster], xy_of_inliers[cluster])))
+            maxval = max(map(max, euclidean_distances(xy_of_inliers[cluster],
+                                                      xy_of_inliers[cluster])))
 
             if maxval > 1:
                 features.append(xy_of_inliers[cluster])
@@ -36,7 +44,8 @@ def cluster_points(array):
     return features
 
 
-def capture_lidar_scene(robot, lidar_device, timestep, path=os.path.join(const.OUTPUT_PATH, 'points.csv')):
+def capture_lidar_scene(robot, lidar_device, timestep,
+                        path=os.path.join(const.OUTPUT_PATH, 'points.csv')):
 
     point_list = []
 
@@ -53,10 +62,10 @@ def capture_lidar_scene(robot, lidar_device, timestep, path=os.path.join(const.O
             dist = math.sqrt(row.x**2 + row.y**2 + row.z**2)
 
             if row.y > -0.2 and row.y < 0.8 \
-            and row.x != 0 and row.y != 0 \
-            and dist < 7:
+                and row.x != 0 \
+                and row.y != 0 \
+                    and dist < 7:
                 csvwriter.writerow([row.x, row.y, row.z])
                 point_list.append((row.x, row.z))
 
     return np.array(point_list)
-
