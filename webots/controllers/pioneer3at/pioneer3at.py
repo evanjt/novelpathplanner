@@ -1,17 +1,21 @@
-"""pioneer3at controller."""
+#!/usr/bin/python3
 
-from controller import Robot, Lidar, GPS, InertialUnit, Camera, RangeFinder, DistanceSensor
+'''
+    Code related to the main controller of the pioneer3at
+    controller in webots.
+
+    Authors:    Josh Clough
+                Evan Thomas
+'''
+
+from controller import Robot
 import csv
-import sys
 import os
-import math
-import numpy as np
-
 
 # Project specific functions
 import research.clustering as clust
-from research.constants import *
-from research.navigation import *
+import research.constants as const
+import research.navigation as nav
 
 # create the Robot instance.
 robot = Robot()
@@ -25,8 +29,8 @@ hokuyoFront.enable(timestep)
 hokuyoFront.enablePointCloud()
 hkfWidth = hokuyoFront.getHorizontalResolution()
 hkfHalfWidth = hkfWidth / 2.0
-hkfMaxRange = hokuyoFront.getMaxRange() # 30
-hkfRangeThreshold = hkfMaxRange / 20.0 #1.5
+hkfMaxRange = hokuyoFront.getMaxRange()  # 30
+hkfRangeThreshold = hkfMaxRange / 20.0  # 1.5
 hkfValues = []
 
 # hokuyoRear = robot.getLidar("HokuyoRear")
@@ -54,73 +58,94 @@ imu.enable(timestep)
 # cameraRight.enable(timestep)
 
 wheels = []
-wheelNames = ['front left wheel', 'front right wheel','back left wheel', 'back right wheel']
+wheelNames = ['front left wheel', 'front right wheel',
+              'back left wheel', 'back right wheel']
 for i in range(4):
     wheels.append(robot.getMotor(wheelNames[i]))
     wheels[i].setPosition(float('inf'))
     wheels[i].setVelocity(0.0)
 
 # set the Braitenberg coefficient
-hkfBraitenbergCoefficients = getBraitenberg(robot, hkfWidth, hkfHalfWidth)
+hkfBraitenbergCoefficients = nav.getBraitenberg(robot, hkfWidth, hkfHalfWidth)
 
-# wrap the below in a for loop based on user response to move and scan a new area
+# NTS: wrap below in a for loop based on need to move & map more areas
 # remove HOME_LOCATION const and replace with user-entered variable
 
 print("Pioneer is scanning surrounding area for features")
 
 targets = clust.get_targets(robot, timestep, lidar)
-mappingDistance = 2 # Need to calculate based on feature height - need to do dbscan in 3d for this and return feature points and feature heights
-
-print("%d features found \nBeginning survey", len(targets)-1)
+# NTS: Need to calculate based on feature height 
+# need to do dbscan in 3d for this and
+# need to return feature points and feature heights
+mappingDistance = 2 
+print("{} features found \nBeginning survey".format(len(targets)-1))
 
 # Loop through the target features provided
 for i in range(len(targets)):
 
     # Calculate initial bearing to target feature
     robot.step(timestep)
-    currentPos = robot_position(gps)
-    targetBearing = target_bearing(currentPos, targets[i]) # need to reset bearing to feature every few meters to account for error in initial course
+    currentPos = nav.robot_position(gps)
+     # NTS: need to reset bearing to feature every few meters
+     # to account for error in initial course
+    targetBearing = nav.target_bearing(currentPos, targets[i])
     flag = False
 
     # Navigate robot to the feature
     while robot.step(timestep) != -1:
 
-        # Continually calculate and update robot position, bearing and distance to target feature
-        currentPos = robot_position(gps)
-        currentBearing = robot_bearing(imu)
-        targetDistance = target_distance(currentPos, targets[i])
+        # Continually calculate and update robot position, 
+        # bearing and distance to target feature
+        currentPos = nav.robot_position(gps)
+        currentBearing = nav.robot_bearing(imu)
+        targetDistance = nav.target_distance(currentPos, targets[i])
 
         # Continually detect obstacles
-        obstacle = detect_obstacle(robot, hokuyoFront, hkfWidth, hkfHalfWidth, hkfRangeThreshold, hkfMaxRange,  hkfBraitenbergCoefficients)
+        obstacle = nav.detect_obstacle(robot, hokuyoFront,
+                                       hkfWidth, hkfHalfWidth,
+                                       hkfRangeThreshold, hkfMaxRange,
+                                       hkfBraitenbergCoefficients)
 
         # Once within range map the feature, stop once returned home
-        if targetDistance > mappingDistance and obstacle[2] > OBSTACLE_THRESHOLD:
-            speed_factor = (1.0 - DECREASE_FACTOR * obstacle[2]) * MAX_SPEED / obstacle[2]
-            set_velocity(wheels, speed_factor * obstacle[0], speed_factor * obstacle[1])
+        if targetDistance > mappingDistance \
+                and obstacle[2] > const.OBSTACLE_THRESHOLD:
+            speed_factor = (1.0 - const.DECREASE_FACTOR * obstacle[2]) \
+                            * const.MAX_SPEED / obstacle[2]
+            nav.set_velocity(wheels, speed_factor * obstacle[0], 
+                             speed_factor * obstacle[1])
 
-        elif targetDistance > mappingDistance and obstacle[2] > OBSTACLE_THRESHOLD-0.05:
-            set_velocity(wheels, MAX_SPEED, MAX_SPEED)
+        elif targetDistance > mappingDistance \
+                and obstacle[2] > const.OBSTACLE_THRESHOLD-0.05:
+            nav.set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED)
             flag = False
 
         elif flag == False:
-            targetBearing = target_bearing(currentPos, targets[i])
+            targetBearing = nav.target_bearing(currentPos, targets[i])
             flag = True
 
-        elif targetDistance > mappingDistance and abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 > 180:
-            set_velocity(wheels, MAX_SPEED*0.5, MAX_SPEED)
+        elif targetDistance > mappingDistance \
+                and abs(targetBearing - currentBearing) > 1 \
+                and (targetBearing - currentBearing + 360) % 360 > 180:
+            nav.set_velocity(wheels, const.MAX_SPEED*0.5, const.MAX_SPEED)
 
-        elif targetDistance > mappingDistance and abs(targetBearing - currentBearing) > 1 and (targetBearing - currentBearing + 360) % 360 < 180:
-            set_velocity(wheels, MAX_SPEED, MAX_SPEED*0.5)
+        elif targetDistance > mappingDistance \
+                and abs(targetBearing - currentBearing) > 1 \
+                and (targetBearing - currentBearing + 360) % 360 < 180:
+            nav.set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED*0.5)
 
         elif targetDistance > mappingDistance:
-            set_velocity(wheels, MAX_SPEED, MAX_SPEED)
+            nav.set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED)
 
         elif i == len(targets)-1:
             print("Survey complete")
-            set_velocity(wheels, 0, 0)
+            nav.set_velocity(wheels, 0, 0)
             break
 
         else:
-            prepare_to_map(robot, timestep, imu, wheels, (currentBearing + 90) % 360) # change function to be on right angle with feature, need to obtain the bearing of the feature plane to do this
-            feature_mapping(robot, timestep, wheels, gps, hokuyoFront, hkfWidth, mappingDistance)
+            # NTS: change function to be on right angle with feature, 
+            # need to obtain the bearing of the feature plane to do this
+            nav.prepare_to_map(robot, timestep, imu, wheels,
+                               (currentBearing + 90) % 360)
+            nav.feature_mapping(robot, timestep, wheels, gps, 
+                                hokuyoFront, hkfWidth, mappingDistance)
             break

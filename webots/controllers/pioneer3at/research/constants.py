@@ -1,6 +1,15 @@
+#!/usr/bin/python3
+'''
+    Constants required for the use of the pioneer3at
+    controller in webots.
+
+    Authors:    Josh Clough
+                Evan Thomas
+'''
+
 import os
-from research.navigation import location_offset
-## CONSTANTS
+
+
 # define home location
 HOME_LOCATION  =[0, 0, 0]
 
@@ -9,6 +18,8 @@ MAX_SPEED = 5.24
 OBSTACLE_THRESHOLD = 0.1
 DECREASE_FACTOR = 0.9
 
-OUTPUT_PATH = os.path.abspath(os.path.join(os.getcwd(), \
-                              os.pardir,os.pardir, os.pardir, \
-                              'output'))
+OUTPUT_PATH = os.path.abspath(os.path.join(os.getcwd(),
+                                           os.pardir,
+                                           os.pardir,
+                                           os.pardir,
+                                           'output'))
