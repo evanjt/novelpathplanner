@@ -9,5 +9,5 @@ import time
 def worker(arg):
     ''' Function for logging '''
     #while not arg['stop']:
-    logging.debug('Hi from myfunc')
+    logging.debug('Starting log')
         #time.sleep(0.5)

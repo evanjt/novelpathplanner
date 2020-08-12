@@ -92,9 +92,6 @@ info = {'stop': False}
 thread = threading.Thread(target=log.worker, args=(info,))
 thread.start()
 
-logging.debug('Hello from main')
-
-thread.join()
 
 
 ''' End logging stuff '''
@@ -109,6 +106,7 @@ for i in range(len(targets)):
     targetBearing = nav.target_bearing(currentPos, targets[i])
     flag = False
 
+    logging.debug('Current position: x:{:6f}, y:{:6f}, z:{:6f}'.format(*currentPos))
     # Navigate robot to the feature
     while robot.step(timestep) != -1:
         # Continually calculate and update robot position,
@@ -116,7 +114,7 @@ for i in range(len(targets)):
         currentPos = nav.robot_position(gps)
         currentBearing = nav.robot_bearing(imu)
         targetDistance = nav.target_distance(currentPos, targets[i])
-
+        logging.debug('Current position: x:{:6f}, y:{:6f}, z:{:6f}'.format(*currentPos))
         # Continually detect obstacles
         obstacle = nav.detect_obstacle(robot, hokuyoFront,
                                        hkfWidth, hkfHalfWidth,
@@ -166,3 +164,6 @@ for i in range(len(targets)):
             nav.feature_mapping(robot, timestep, wheels, gps,
                                 hokuyoFront, hkfWidth, mappingDistance)
             break
+
+# Join log together
+thread.join()
