@@ -89,14 +89,11 @@ print("{} features found \nBeginning survey".format(len(targets)-1))
     '''
 logging.basicConfig(level=logging.DEBUG, format='%(relativeCreated)6d %(threadName)s %(message)s')
 info = {'stop': False}
-thread = threading.Thread(target=worker, args=(info,))
+thread = threading.Thread(target=log.worker, args=(info,))
 thread.start()
 
-try:
-    logging.debug('Hello from main')
-    time.sleep(0.75)
-except KeyboardInterrupt:
-    info['stop'] = True
+logging.debug('Hello from main')
+
 thread.join()
 
 
@@ -114,8 +111,6 @@ for i in range(len(targets)):
 
     # Navigate robot to the feature
     while robot.step(timestep) != -1:
-        print("Running. Count:", increment_count)
-        increment_count += 1
         # Continually calculate and update robot position,
         # bearing and distance to target feature
         currentPos = nav.robot_position(gps)
