@@ -11,11 +11,15 @@
 from controller import Robot
 import csv
 import os
+import logging
+import threading
+import time
 
 # Project specific functions
 import research.clustering as clust
 import research.constants as const
 import research.navigation as nav
+import research.logger as log
 
 # create the Robot instance.
 robot = Robot()
@@ -74,15 +78,20 @@ hkfBraitenbergCoefficients = nav.getBraitenberg(robot, hkfWidth, hkfHalfWidth)
 print("Pioneer is scanning surrounding area for features")
 
 targets = clust.get_targets(robot, timestep, lidar)
-# NTS: Need to calculate based on feature height 
+# NTS: Need to calculate based on feature height
 # need to do dbscan in 3d for this and
 # need to return feature points and feature heights
-mappingDistance = 2 
+mappingDistance = 2
 print("{} features found \nBeginning survey".format(len(targets)-1))
+
+# Set up logger
+logging.basicConfig(level=logging.DEBUG, format='%(relativeCreated)6d %(threadName)s %(message)s')
+info = {'stop': False}
+thread = threading.Thread(target=log.worker, args=(info,gps,)) # Send in GPS object
+thread.start()
 
 # Loop through the target features provided
 for i in range(len(targets)):
-
     # Calculate initial bearing to target feature
     robot.step(timestep)
     currentPos = nav.robot_position(gps)
@@ -91,10 +100,10 @@ for i in range(len(targets)):
     targetBearing = nav.target_bearing(currentPos, targets[i])
     flag = False
 
+
     # Navigate robot to the feature
     while robot.step(timestep) != -1:
-
-        # Continually calculate and update robot position, 
+        # Continually calculate and update robot position,
         # bearing and distance to target feature
         currentPos = nav.robot_position(gps)
         currentBearing = nav.robot_bearing(imu)
@@ -109,9 +118,10 @@ for i in range(len(targets)):
         # Once within range map the feature, stop once returned home
         if targetDistance > mappingDistance \
                 and obstacle[2] > const.OBSTACLE_THRESHOLD:
+            logging.debug("Found object")
             speed_factor = (1.0 - const.DECREASE_FACTOR * obstacle[2]) \
                             * const.MAX_SPEED / obstacle[2]
-            nav.set_velocity(wheels, speed_factor * obstacle[0], 
+            nav.set_velocity(wheels, speed_factor * obstacle[0],
                              speed_factor * obstacle[1])
 
         elif targetDistance > mappingDistance \
@@ -142,10 +152,14 @@ for i in range(len(targets)):
             break
 
         else:
-            # NTS: change function to be on right angle with feature, 
+            # NTS: change function to be on right angle with feature,
             # need to obtain the bearing of the feature plane to do this
+            logging.debug("Start mapping feature")
             nav.prepare_to_map(robot, timestep, imu, wheels,
                                (currentBearing + 90) % 360)
-            nav.feature_mapping(robot, timestep, wheels, gps, 
+            nav.feature_mapping(robot, timestep, wheels, gps,
                                 hokuyoFront, hkfWidth, mappingDistance)
             break
+
+# Join log together
+thread.join()
