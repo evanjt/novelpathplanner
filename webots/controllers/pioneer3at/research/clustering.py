@@ -10,6 +10,7 @@
 import os
 import sys
 import csv
+import logging
 import numpy as np
 import math
 import tsp
@@ -18,8 +19,8 @@ import research.constants as const
 from sklearn.metrics.pairwise import euclidean_distances
 
 def get_targets(robot, timestep, lidar):
-
-    # Before beginning survey scan surrounds, cluster the scene, 
+    logging.debug("Acquiring LiDAR scan")
+    # Before beginning survey scan surrounds, cluster the scene,
     # return the xy of clusters for feature mapping
     featureList = []
     targets = []
@@ -28,26 +29,26 @@ def get_targets(robot, timestep, lidar):
     point_array = capture_lidar_scene(robot, lidar, timestep)
 
     features = cluster_points(point_array)
-    
+
     # Obtain the centroid of each cluster
     for feature in features:
         featureList.append(np.ndarray.tolist(
                            np.average(feature, axis=0)))
 
-    # For each cluster check if two clusters are close by and 
+    # For each cluster check if two clusters are close by and
     # on the same bearing (i.e. the same feature)
 
-    # Add 2D home coordinates as a feature and calculate tsp route                    
-    featureList.insert(0, [const.HOME_LOCATION[0], 
+    # Add 2D home coordinates as a feature and calculate tsp route
+    featureList.insert(0, [const.HOME_LOCATION[0],
                            const.HOME_LOCATION[2]])
     devnull = open(os.devnull, 'w')
     oldstdout_fno = os.dup(sys.stdout.fileno())
     os.dup2(devnull.fileno(), 1)
     t = tsp.tsp(featureList)
     os.dup2(oldstdout_fno, 1)
-    
-    # Re-order features based on tsp, add Y coordinate, 
-    # and add home as last feature  
+
+    # Re-order features based on tsp, add Y coordinate,
+    # and add home as last feature
     targets.append(const.HOME_LOCATION)
     for ind, val in enumerate(t[1]):
         featureList[val].insert(1,0)
@@ -56,7 +57,7 @@ def get_targets(robot, timestep, lidar):
     # Save feature locations to file
     with open(os.path.join(const.OUTPUT_PATH,'features.csv'),
               'w', newline='') as outfile:
-        csvwriter = csv.writer(outfile)        
+        csvwriter = csv.writer(outfile)
         for i in targets[1:]:
             csvwriter.writerow(i)
 
@@ -75,12 +76,12 @@ def capture_lidar_scene(robot, lidar_device, timestep,
         for i in range(5):
             robot.step(timestep)
             cloud = lidar_device.getPointCloud()
-        
+
         #  Filter the lidar point cloud
         for row in cloud:
 
             distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
-            
+
             if row.y > -0.2 and row.y < 0.8 \
                 and row.x != 0 and row.y != 0 \
                 and distance < 7:
@@ -96,23 +97,23 @@ def cluster_points(array):
 
     # Use to DBSCAN to cluster points
     # NTS: need to refine parameters, including too many outliers
-    clustering = DBSCAN(eps=0.5, min_samples=10).fit(array) 
-    
+    clustering = DBSCAN(eps=0.5, min_samples=10).fit(array)
+
     # For each detected cluster calculate the max dimension of the feature
-    # if greater than 1 meter mark the cluster as a feature 
-    for cluster in np.unique(clustering.labels_):        
-    
+    # if greater than 1 meter mark the cluster as a feature
+    for cluster in np.unique(clustering.labels_):
+
         if cluster != -1:
             subX = array[clustering.labels_ == cluster]
             x, y = subX.reshape(-1,2).T
             x = x.reshape(-1,1)
             y = y.reshape(-1,1)
             clusters.append(np.hstack((x, y)).tolist())
-            
+
             # NTS: need better hueristic to id what clusters are features
-            maxval = max(map(max, euclidean_distances(clusters[cluster], 
-                                                      clusters[cluster]))) 
+            maxval = max(map(max, euclidean_distances(clusters[cluster],
+                                                      clusters[cluster])))
             if maxval > 1:
                 features.append(clusters[cluster])
-                
+
     return features

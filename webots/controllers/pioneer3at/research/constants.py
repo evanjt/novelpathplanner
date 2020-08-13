@@ -17,9 +17,14 @@ HOME_LOCATION  =[0, 0, 0]
 MAX_SPEED = 5.24
 OBSTACLE_THRESHOLD = 0.1
 DECREASE_FACTOR = 0.9
+COORDINATE_FILENAME = 'coordinates.json'
+FEATURE_FILENAME = 'featurepoints.json'
 
 OUTPUT_PATH = os.path.abspath(os.path.join(os.getcwd(),
                                            os.pardir,
                                            os.pardir,
                                            os.pardir,
                                            'output'))
+
+LOGFILENAME = 'logfile.txt'
+
