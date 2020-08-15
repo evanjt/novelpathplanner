@@ -72,23 +72,37 @@ for i in range(4):
 # set the Braitenberg coefficient
 hkfBraitenbergCoefficients = nav.getBraitenberg(robot, hkfWidth, hkfHalfWidth)
 
+# Set up logger with formatting for file output
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(name)-5s %(levelname)-5s %(message)s',
+                    datefmt='%m-%d %H:%M:%S',
+                    filename=os.path.join(const.OUTPUT_PATH, const.LOGFILENAME),
+                    filemode='w')
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+# Formatting for console output
+consoleformatter = logging.Formatter('%(asctime)s %(name)-5s: %(levelname)-5s %(message)s', datefmt='%H:%M:%S')
+console.setFormatter(consoleformatter)
+logging.getLogger('').addHandler(console)
+
+#info = {'stop': False}
+thread = threading.Thread(target=log.worker, args=(gps,imu,)) # Send in GPS/IMU objects
+thread.start()
+
 # NTS: wrap below in a for loop based on need to move & map more areas
 # remove HOME_LOCATION const and replace with user-entered variable
 
-print("Pioneer is scanning surrounding area for features")
+logging.info("Pioneer is scanning surrounding area for features")
 
 targets = clust.get_targets(robot, timestep, lidar)
+#print(targets)
+log.write_featurepoints(targets, gps, imu)
+
 # NTS: Need to calculate based on feature height
 # need to do dbscan in 3d for this and
 # need to return feature points and feature heights
 mappingDistance = 2
-print("{} features found \nBeginning survey".format(len(targets)-1))
-
-# Set up logger
-logging.basicConfig(level=logging.DEBUG, format='%(relativeCreated)6d %(threadName)s %(message)s')
-info = {'stop': False}
-thread = threading.Thread(target=log.worker, args=(info,gps,)) # Send in GPS object
-thread.start()
+logging.info("{} features found -- Beginning survey".format(len(targets)-1))
 
 # Loop through the target features provided
 for i in range(len(targets)):
@@ -98,6 +112,7 @@ for i in range(len(targets)):
      # NTS: need to reset bearing to feature every few meters
      # to account for error in initial course
     targetBearing = nav.target_bearing(currentPos, targets[i])
+    print(targetBearing)
     flag = False
 
 
@@ -118,7 +133,6 @@ for i in range(len(targets)):
         # Once within range map the feature, stop once returned home
         if targetDistance > mappingDistance \
                 and obstacle[2] > const.OBSTACLE_THRESHOLD:
-            logging.debug("Found object")
             speed_factor = (1.0 - const.DECREASE_FACTOR * obstacle[2]) \
                             * const.MAX_SPEED / obstacle[2]
             nav.set_velocity(wheels, speed_factor * obstacle[0],
@@ -154,7 +168,7 @@ for i in range(len(targets)):
         else:
             # NTS: change function to be on right angle with feature,
             # need to obtain the bearing of the feature plane to do this
-            logging.debug("Start mapping feature")
+            logging.info("Start mapping feature")
             nav.prepare_to_map(robot, timestep, imu, wheels,
                                (currentBearing + 90) % 360)
             nav.feature_mapping(robot, timestep, wheels, gps,
