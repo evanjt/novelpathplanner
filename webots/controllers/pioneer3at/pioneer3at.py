@@ -96,6 +96,7 @@ logging.info("Pioneer is scanning surrounding area for features")
 
 targets = clust.get_targets(robot, timestep, lidar)
 #print(targets)
+#if targets == 0
 log.write_featurepoints(targets, gps, imu)
 
 # NTS: Need to calculate based on feature height
@@ -112,7 +113,8 @@ for i in range(len(targets)):
      # NTS: need to reset bearing to feature every few meters
      # to account for error in initial course
     targetBearing = nav.target_bearing(currentPos, targets[i])
-    print(targetBearing)
+    logging.info("Heading to bearing: {:1f}".format(targetBearing))
+    logging.info("Heading to feature: {:.3f}x, {:.3f}y, {:.3f}z".format(*targets[i]))
     flag = False
 
 
@@ -168,7 +170,13 @@ for i in range(len(targets)):
         else:
             # NTS: change function to be on right angle with feature,
             # need to obtain the bearing of the feature plane to do this
-            logging.info("Start mapping feature")
+            logging.info("Currently at GPS: {:.3f}x, {:.3f}y, {:.3f}z".format(*currentPos))
+            logging.info("Start mapping feature #{}".format(i))
+            lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
+                                              'lidar_feature' + str(i) + '.csv')
+            clust.capture_lidar_scene(robot, lidar, timestep,
+                        path=lidar_feature_csvpath)
+            logging.info("Wrote feature {}'s points to CSV".format(i))
             nav.prepare_to_map(robot, timestep, imu, wheels,
                                (currentBearing + 90) % 360)
             nav.feature_mapping(robot, timestep, wheels, gps,

@@ -27,9 +27,9 @@ def get_targets(robot, timestep, lidar):
 
     # Capture lidar scene and identify features
     point_array = capture_lidar_scene(robot, lidar, timestep)
+    logging.debug("Capturing lidar scene...")
 
     features = cluster_points(point_array)
-
     # Obtain the centroid of each cluster
     for feature in features:
         featureList.append(np.ndarray.tolist(
@@ -80,14 +80,14 @@ def capture_lidar_scene(robot, lidar_device, timestep,
         #  Filter the lidar point cloud
         for row in cloud:
 
-            distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
+            #distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
 
-            if row.y > -0.2 and row.y < 0.8 \
-                and row.x != 0 and row.y != 0 \
-                and distance < 7:
+            if row.y > -0.9 and row.x != 0 and row.y != 0:
+                #and distance < 7:
                 csvwriter.writerow([row.x, row.y, row.z])
                 point_list.append((row.x, row.z))
 
+    logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
     return np.array(point_list)
 
 def cluster_points(array):
