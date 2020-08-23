@@ -97,7 +97,7 @@ def cluster_points(array):
 
     # Use to DBSCAN to cluster points
     # NTS: need to refine parameters, including too many outliers
-    clustering = DBSCAN(eps=0.5, min_samples=10).fit(array)
+    clustering = DBSCAN(eps=1, min_samples=50).fit(array)
 
     # For each detected cluster calculate the max dimension of the feature
     # if greater than 1 meter mark the cluster as a feature

@@ -114,10 +114,9 @@ for i in range(len(targets)):
      # NTS: need to reset bearing to feature every few meters
      # to account for error in initial course
     targetBearing = nav.target_bearing(currentPos, targets[i])
-    logging.info("Heading to bearing: {:1f}".format(targetBearing))
-    logging.info("Heading to feature: {:.3f}x, {:.3f}y, {:.3f}z".format(*targets[i]))
+    logging.info("Heading to feature {:1d} at: {:.3f}x, {:.3f}y, {:.3f}z".format(i+1, *targets[i]))
+    logging.info("Along bearing: {:1f}".format(targetBearing))
     flag = False
-
 
     # Navigate robot to the feature
     while robot.step(timestep) != -1:
@@ -126,8 +125,6 @@ for i in range(len(targets)):
         currentPos = nav.robot_position(gps)
         currentBearing = nav.robot_bearing(imu)
         targetDistance = nav.target_distance(currentPos, targets[i])
-
-        print(targetDistance, currentBearing)
 
         # Continually detect obstacles
         obstacle = nav.detect_obstacle(robot, hokuyoFront,
@@ -173,13 +170,12 @@ for i in range(len(targets)):
         else:
             # NTS: change function to be on right angle with feature,
             # need to obtain the bearing of the feature plane to do this
-            logging.info("Currently at GPS: {:.3f}x, {:.3f}y, {:.3f}z".format(*currentPos))
-            logging.info("Start mapping feature #{}".format(i))
+            logging.info("Starting to map feature #{} at: {:.3f}x, {:.3f}y, {:.3f}z".format(i+1, *currentPos))
             lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
                                               'lidar_feature' + str(i) + '.csv')
             clust.capture_lidar_scene(robot, lidar, timestep,
                         path=lidar_feature_csvpath)
-            logging.info("Wrote feature {}'s points to CSV".format(i))
+            logging.info("Wrote feature {}'s points to CSV".format(i+1))
             nav.prepare_to_map(robot, timestep, imu, wheels,
                                (currentBearing + 90) % 360)
             nav.feature_mapping(robot, timestep, wheels, gps,

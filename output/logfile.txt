@@ -1,9 +1,12 @@
-08-23 22:02:36 GNSS  DEBUG Starting log for Pioneer3at
-08-23 22:02:36 root  INFO  Pioneer is scanning surrounding area for features
-08-23 22:02:36 root  DEBUG Acquiring LiDAR scan
-08-23 22:02:37 root  INFO  Captured 6786 points in LiDAR scene
-08-23 22:02:37 root  DEBUG Capturing lidar scene...
-08-23 22:02:40 pulp.apis.core DEBUG C:\Users\joshc\AppData\Local\Programs\Python\Python37\lib\site-packages\pulp\apis\..\solverdir\cbc\win\64\cbc.exe C:\Users\joshc\AppData\Local\Temp\23f00b0a2ebf468280cf104546d8c398-pulp.mps ratio None allow None threads None presolve on strong None gomory on knapsack on probing on branch printingOptions all solution C:\Users\joshc\AppData\Local\Temp\23f00b0a2ebf468280cf104546d8c398-pulp.sol 
-08-23 22:02:40 root  INFO  4 features found -- Beginning survey
-08-23 22:02:40 root  INFO  Heading to bearing: 231.550538
-08-23 22:02:40 root  INFO  Heading to feature: 13.161x, 0.000y, -10.491z
+08-23 22:44:33 GNSS  DEBUG Starting log for Pioneer3at
+08-23 22:44:33 root  INFO  Pioneer is scanning surrounding area for features
+08-23 22:44:33 root  DEBUG Acquiring LiDAR scan
+08-23 22:44:34 root  INFO  Captured 2998 points in LiDAR scene
+08-23 22:44:34 root  DEBUG Capturing lidar scene...
+08-23 22:44:34 pulp.apis.core DEBUG C:\Users\joshc\AppData\Local\Programs\Python\Python37\lib\site-packages\pulp\apis\..\solverdir\cbc\win\64\cbc.exe C:\Users\joshc\AppData\Local\Temp\10605a4ff2004b1ea89d85f752107dbd-pulp.mps ratio None allow None threads None presolve on strong None gomory on knapsack on probing on branch printingOptions all solution C:\Users\joshc\AppData\Local\Temp\10605a4ff2004b1ea89d85f752107dbd-pulp.sol 
+08-23 22:44:34 root  INFO  4 features found -- Beginning survey
+08-23 22:44:35 root  INFO  Heading to feature 1 at: 10.311x, 0.000y, -0.573z
+08-23 22:44:35 root  INFO  Along bearing: 266.826931
+08-23 22:44:52 root  INFO  Start mapping feature #1 at: 8.573x, 0.007y, -1.549z
+08-23 22:44:53 root  INFO  Captured 6409 points in LiDAR scene
+08-23 22:44:53 root  INFO  Wrote feature 1's points to CSV
