@@ -42,10 +42,10 @@ hkfValues = []
 # hokuyoRear.enablePointCloud()
 
 # lidar = robot.getLidar('Velodyne HDL-32E')
+
 lidar = robot.getLidar('lidar')
 lidar.enable(timestep)
 lidar.enablePointCloud()
-# lidar.setFrequency(20)
 
 gps = robot.getGPS('gps')
 gps.enable(timestep)
