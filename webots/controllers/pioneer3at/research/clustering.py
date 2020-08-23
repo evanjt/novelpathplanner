@@ -72,10 +72,10 @@ def capture_lidar_scene(robot, lidar_device, timestep,
     with open(path, 'w', newline='') as outfile:
         csvwriter = csv.writer(outfile)
 
-        # Due to Velodyne intricacies every fifth step yields a full scan
-        #for i in range(5):
-        robot.step(timestep)
-        cloud = lidar_device.getPointCloud()
+        # Due to lidar intricacies every fifth step yields a full scan
+        for i in range(5):
+            robot.step(timestep)
+            cloud = lidar_device.getPointCloud()
 
         #  Filter the lidar point cloud
         for row in cloud:

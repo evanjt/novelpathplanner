@@ -127,6 +127,8 @@ for i in range(len(targets)):
         currentBearing = nav.robot_bearing(imu)
         targetDistance = nav.target_distance(currentPos, targets[i])
 
+        print(targetDistance, currentBearing)
+
         # Continually detect obstacles
         obstacle = nav.detect_obstacle(robot, hokuyoFront,
                                        hkfWidth, hkfHalfWidth,

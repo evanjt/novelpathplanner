@@ -1,51 +1,9 @@
-08-23 21:05:39 GNSS  DEBUG Starting log for Pioneer3at
-08-23 21:05:39 root  INFO  Pioneer is scanning surrounding area for features
-08-23 21:05:39 root  DEBUG Acquiring LiDAR scan
-08-23 21:05:40 root  INFO  Captured 2695 points in LiDAR scene
-08-23 21:05:40 root  DEBUG Capturing lidar scene...
-08-23 21:05:41 pulp.apis.core DEBUG C:\Users\joshc\AppData\Local\Programs\Python\Python37\lib\site-packages\pulp\apis\..\solverdir\cbc\win\64\cbc.exe C:\Users\joshc\AppData\Local\Temp\fec6f63ed5ab4ab4bb39f8b7394d2ea3-pulp.mps ratio None allow None threads None presolve on strong None gomory on knapsack on probing on branch printingOptions all solution C:\Users\joshc\AppData\Local\Temp\fec6f63ed5ab4ab4bb39f8b7394d2ea3-pulp.sol 
-08-23 21:05:41 root  INFO  7 features found -- Beginning survey
-08-23 21:05:41 root  INFO  Heading to bearing: 319.023029
-08-23 21:05:41 root  INFO  Heading to feature: 11.565x, 0.000y, 12.885z
-08-23 21:06:24 root  INFO  Currently at GPS: 9.585x, 0.007y, 13.125z
-08-23 21:06:24 root  INFO  Start mapping feature #0
-08-23 21:06:24 root  INFO  Captured 9732 points in LiDAR scene
-08-23 21:06:24 root  INFO  Wrote feature 0's points to CSV
-08-23 21:06:41 root  INFO  Heading to bearing: 75.904681
-08-23 21:06:41 root  INFO  Heading to feature: -6.994x, 0.000y, 17.839z
-08-23 21:07:24 root  INFO  Currently at GPS: -5.022x, 0.007y, 18.049z
-08-23 21:07:24 root  INFO  Start mapping feature #1
-08-23 21:07:24 root  INFO  Captured 10047 points in LiDAR scene
-08-23 21:07:24 root  INFO  Wrote feature 1's points to CSV
-08-23 21:07:40 root  INFO  Heading to bearing: 146.564085
-08-23 21:07:40 root  INFO  Heading to feature: -7.245x, 0.000y, 17.091z
-08-23 21:07:43 root  INFO  Currently at GPS: -5.496x, 0.006y, 18.038z
-08-23 21:07:43 root  INFO  Start mapping feature #2
-08-23 21:07:43 root  INFO  Captured 9938 points in LiDAR scene
-08-23 21:07:43 root  INFO  Wrote feature 2's points to CSV
-08-23 21:07:59 root  INFO  Heading to bearing: 136.592954
-08-23 21:07:59 root  INFO  Heading to feature: -8.139x, 0.000y, 16.722z
-08-23 21:07:59 root  INFO  Currently at GPS: -6.851x, 0.007y, 18.060z
-08-23 21:07:59 root  INFO  Start mapping feature #3
-08-23 21:07:59 root  INFO  Captured 10177 points in LiDAR scene
-08-23 21:07:59 root  INFO  Wrote feature 3's points to CSV
-08-23 21:08:16 root  INFO  Heading to bearing: 164.386497
-08-23 21:08:16 root  INFO  Heading to feature: -12.560x, 0.000y, -6.708z
-08-23 21:09:08 root  INFO  Currently at GPS: -13.972x, 0.007y, -5.292z
-08-23 21:09:08 root  INFO  Start mapping feature #4
-08-23 21:09:08 root  INFO  Captured 7287 points in LiDAR scene
-08-23 21:09:08 root  INFO  Wrote feature 4's points to CSV
-08-23 21:09:25 root  INFO  Heading to bearing: 220.131341
-08-23 21:09:25 root  INFO  Heading to feature: -3.435x, 0.000y, -19.767z
-08-23 21:10:03 root  INFO  Currently at GPS: -3.568x, 0.007y, -17.790z
-08-23 21:10:03 root  INFO  Start mapping feature #5
-08-23 21:10:04 root  INFO  Captured 9880 points in LiDAR scene
-08-23 21:10:04 root  INFO  Wrote feature 5's points to CSV
-08-23 21:10:22 root  INFO  Heading to bearing: 302.022669
-08-23 21:10:22 root  INFO  Heading to feature: 9.467x, 0.000y, -9.819z
-08-23 21:10:52 root  INFO  Currently at GPS: 7.727x, 0.007y, -10.799z
-08-23 21:10:52 root  INFO  Start mapping feature #6
-08-23 21:10:52 root  INFO  Captured 6905 points in LiDAR scene
-08-23 21:10:52 root  INFO  Wrote feature 6's points to CSV
-08-23 21:11:10 root  INFO  Heading to bearing: 38.019404
-08-23 21:11:10 root  INFO  Heading to feature: 0.000x, 0.000y, 0.000z
+08-23 22:02:36 GNSS  DEBUG Starting log for Pioneer3at
+08-23 22:02:36 root  INFO  Pioneer is scanning surrounding area for features
+08-23 22:02:36 root  DEBUG Acquiring LiDAR scan
+08-23 22:02:37 root  INFO  Captured 6786 points in LiDAR scene
+08-23 22:02:37 root  DEBUG Capturing lidar scene...
+08-23 22:02:40 pulp.apis.core DEBUG C:\Users\joshc\AppData\Local\Programs\Python\Python37\lib\site-packages\pulp\apis\..\solverdir\cbc\win\64\cbc.exe C:\Users\joshc\AppData\Local\Temp\23f00b0a2ebf468280cf104546d8c398-pulp.mps ratio None allow None threads None presolve on strong None gomory on knapsack on probing on branch printingOptions all solution C:\Users\joshc\AppData\Local\Temp\23f00b0a2ebf468280cf104546d8c398-pulp.sol 
+08-23 22:02:40 root  INFO  4 features found -- Beginning survey
+08-23 22:02:40 root  INFO  Heading to bearing: 231.550538
+08-23 22:02:40 root  INFO  Heading to feature: 13.161x, 0.000y, -10.491z
