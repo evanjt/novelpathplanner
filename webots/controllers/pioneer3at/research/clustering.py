@@ -27,9 +27,9 @@ def get_targets(robot, timestep, lidar):
 
     # Capture lidar scene and identify features
     point_array = capture_lidar_scene(robot, lidar, timestep)
+    logging.debug("Capturing lidar scene...")
 
     features = cluster_points(point_array)
-
     # Obtain the centroid of each cluster
     for feature in features:
         featureList.append(np.ndarray.tolist(
@@ -72,7 +72,7 @@ def capture_lidar_scene(robot, lidar_device, timestep,
     with open(path, 'w', newline='') as outfile:
         csvwriter = csv.writer(outfile)
 
-        # Due to Velodyne intricacies every fifth step yields a full scan
+        # Due to lidar intricacies every fifth step yields a full scan
         for i in range(5):
             robot.step(timestep)
             cloud = lidar_device.getPointCloud()
@@ -82,12 +82,12 @@ def capture_lidar_scene(robot, lidar_device, timestep,
 
             distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
 
-            if row.y > -0.2 and row.y < 0.8 \
-                and row.x != 0 and row.y != 0 \
-                and distance < 7:
+            if row.x != 0 and row.y != 0 \
+                and distance < 25:
                 csvwriter.writerow([row.x, row.y, row.z])
                 point_list.append((row.x, row.z))
 
+    logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
     return np.array(point_list)
 
 def cluster_points(array):
@@ -97,7 +97,7 @@ def cluster_points(array):
 
     # Use to DBSCAN to cluster points
     # NTS: need to refine parameters, including too many outliers
-    clustering = DBSCAN(eps=0.5, min_samples=10).fit(array)
+    clustering = DBSCAN(eps=1, min_samples=50).fit(array)
 
     # For each detected cluster calculate the max dimension of the feature
     # if greater than 1 meter mark the cluster as a feature

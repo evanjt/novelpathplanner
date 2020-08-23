@@ -41,10 +41,11 @@ hkfValues = []
 # hokuyoRear.enable(timestep)
 # hokuyoRear.enablePointCloud()
 
-lidar = robot.getLidar('Velodyne HDL-32E')
+# lidar = robot.getLidar('Velodyne HDL-32E')
+
+lidar = robot.getLidar('lidar')
 lidar.enable(timestep)
 lidar.enablePointCloud()
-lidar.setFrequency(20)
 
 gps = robot.getGPS('gps')
 gps.enable(timestep)
@@ -96,6 +97,7 @@ logging.info("Pioneer is scanning surrounding area for features")
 
 targets = clust.get_targets(robot, timestep, lidar)
 #print(targets)
+#if targets == 0
 log.write_featurepoints(targets, gps, imu)
 
 # NTS: Need to calculate based on feature height
@@ -112,9 +114,9 @@ for i in range(len(targets)):
      # NTS: need to reset bearing to feature every few meters
      # to account for error in initial course
     targetBearing = nav.target_bearing(currentPos, targets[i])
-    print(targetBearing)
+    logging.info("Heading to feature {:1d} at: {:.3f}x, {:.3f}y, {:.3f}z".format(i+1, *targets[i]))
+    logging.info("Along bearing: {:1f}".format(targetBearing))
     flag = False
-
 
     # Navigate robot to the feature
     while robot.step(timestep) != -1:
@@ -168,7 +170,12 @@ for i in range(len(targets)):
         else:
             # NTS: change function to be on right angle with feature,
             # need to obtain the bearing of the feature plane to do this
-            logging.info("Start mapping feature")
+            logging.info("Starting to map feature #{} at: {:.3f}x, {:.3f}y, {:.3f}z".format(i+1, *currentPos))
+            lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
+                                              'lidar_feature' + str(i) + '.csv')
+            clust.capture_lidar_scene(robot, lidar, timestep,
+                        path=lidar_feature_csvpath)
+            logging.info("Wrote feature {}'s points to CSV".format(i+1))
             nav.prepare_to_map(robot, timestep, imu, wheels,
                                (currentBearing + 90) % 360)
             nav.feature_mapping(robot, timestep, wheels, gps,
