@@ -73,17 +73,17 @@ def capture_lidar_scene(robot, lidar_device, timestep,
         csvwriter = csv.writer(outfile)
 
         # Due to Velodyne intricacies every fifth step yields a full scan
-        for i in range(5):
-            robot.step(timestep)
-            cloud = lidar_device.getPointCloud()
+        #for i in range(5):
+        robot.step(timestep)
+        cloud = lidar_device.getPointCloud()
 
         #  Filter the lidar point cloud
         for row in cloud:
 
-            #distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
+            distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
 
-            if row.y > -0.9 and row.x != 0 and row.y != 0:
-                #and distance < 7:
+            if row.x != 0 and row.y != 0 \
+                and distance < 25:
                 csvwriter.writerow([row.x, row.y, row.z])
                 point_list.append((row.x, row.z))
 
