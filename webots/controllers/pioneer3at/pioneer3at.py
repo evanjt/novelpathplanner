@@ -41,8 +41,6 @@ hkfValues = []
 # hokuyoRear.enable(timestep)
 # hokuyoRear.enablePointCloud()
 
-# lidar = robot.getLidar('Velodyne HDL-32E')
-
 lidar = robot.getLidar('lidar')
 lidar.enable(timestep)
 lidar.enablePointCloud()
@@ -81,50 +79,42 @@ logging.basicConfig(level=logging.DEBUG,
                     filemode='w')
 console = logging.StreamHandler()
 console.setLevel(logging.INFO)
-# Formatting for console output
 consoleformatter = logging.Formatter('%(asctime)s %(name)-5s: %(levelname)-5s %(message)s', datefmt='%H:%M:%S')
 console.setFormatter(consoleformatter)
 logging.getLogger('').addHandler(console)
 
-#info = {'stop': False}
+# Start logging
 thread = threading.Thread(target=log.worker, args=(gps,imu,)) # Send in GPS/IMU objects
 thread.start()
 
 # NTS: wrap below in a for loop based on need to move & map more areas
 # remove HOME_LOCATION const and replace with user-entered variable
+# need instructions for when no targets are found
 
 logging.info("Pioneer is scanning surrounding area for features")
-
-targets = clust.get_targets(robot, timestep, lidar)
-#print(targets)
-#if targets == 0
+targets = clust.get_targets(robot, timestep, lidar, const.HOME_LOCATION)
 log.write_featurepoints(targets, gps, imu)
-
-# NTS: Need to calculate based on feature height
-# need to do dbscan in 3d for this and
-# need to return feature points and feature heights
-mappingDistance = 2
 logging.info("{} features found -- Beginning survey".format(len(targets)-1))
 
 # Loop through the target features provided
 for i in range(len(targets)):
+    
     # Calculate initial bearing to target feature
     robot.step(timestep)
-    currentPos = nav.robot_position(gps)
-     # NTS: need to reset bearing to feature every few meters
-     # to account for error in initial course
-    targetBearing = nav.target_bearing(currentPos, targets[i])
-    logging.info("Heading to feature {:1d} at: {:.3f}x, {:.3f}y, {:.3f}z".format(i+1, *targets[i]))
+    startingPos = nav.robot_position(gps)
+    targetBearing = nav.target_bearing(startingPos, targets[i][0])
+    logging.info("Heading to feature {:1d} at: {:.3f}x, {:.3f}y, {:.3f}z".format(i+1, *targets[i][0]))
     logging.info("Along bearing: {:1f}".format(targetBearing))
     flag = False
 
     # Navigate robot to the feature
     while robot.step(timestep) != -1:
+        
         # Continually calculate and update robot position,
         # bearing and distance to target feature
         currentPos = nav.robot_position(gps)
         currentBearing = nav.robot_bearing(imu)
-        targetDistance = nav.target_distance(currentPos, targets[i])
+        targetDistance = nav.target_distance(currentPos, targets[i][0])
 
         # Continually detect obstacles
         obstacle = nav.detect_obstacle(robot, hokuyoFront,
@@ -133,33 +123,39 @@ for i in range(len(targets)):
                                        hkfBraitenbergCoefficients)
 
         # Once within range map the feature, stop once returned home
-        if targetDistance > mappingDistance \
+        if nav.target_distance(startingPos, currentPos) > \
+            const.MOVEMENT_THRESHOLD:
+            targetBearing = nav.target_bearing(currentPos, targets[i][0])
+            startingPos = currentPos
+
+        elif targetDistance > const.MAPPING_THRESHOLD \
                 and obstacle[2] > const.OBSTACLE_THRESHOLD:
             speed_factor = (1.0 - const.DECREASE_FACTOR * obstacle[2]) \
                             * const.MAX_SPEED / obstacle[2]
             nav.set_velocity(wheels, speed_factor * obstacle[0],
                              speed_factor * obstacle[1])
 
-        elif targetDistance > mappingDistance \
-                and obstacle[2] > const.OBSTACLE_THRESHOLD-0.05:
+        elif targetDistance > const.MAPPING_THRESHOLD \
+                and obstacle[2] > \
+                    const.OBSTACLE_THRESHOLD - const.OBSTACLE_BUFFER:
             nav.set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED)
             flag = False
 
         elif flag == False:
-            targetBearing = nav.target_bearing(currentPos, targets[i])
+            targetBearing = nav.target_bearing(currentPos, targets[i][0])
             flag = True
 
-        elif targetDistance > mappingDistance \
-                and abs(targetBearing - currentBearing) > 1 \
+        elif targetDistance > const.MAPPING_THRESHOLD \
+                and abs(targetBearing - currentBearing) > const.ANGULAR_THRESHOLD \
                 and (targetBearing - currentBearing + 360) % 360 > 180:
             nav.set_velocity(wheels, const.MAX_SPEED*0.5, const.MAX_SPEED)
 
-        elif targetDistance > mappingDistance \
-                and abs(targetBearing - currentBearing) > 1 \
+        elif targetDistance > const.MAPPING_THRESHOLD \
+                and abs(targetBearing - currentBearing) > const.ANGULAR_THRESHOLD \
                 and (targetBearing - currentBearing + 360) % 360 < 180:
             nav.set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED*0.5)
 
-        elif targetDistance > mappingDistance:
+        elif targetDistance > const.MAPPING_THRESHOLD:
             nav.set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED)
 
         elif i == len(targets)-1:
@@ -168,18 +164,16 @@ for i in range(len(targets)):
             break
 
         else:
-            # NTS: change function to be on right angle with feature,
-            # need to obtain the bearing of the feature plane to do this
             logging.info("Starting to map feature #{} at: {:.3f}x, {:.3f}y, {:.3f}z".format(i+1, *currentPos))
             lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
                                               'lidar_feature' + str(i) + '.csv')
-            clust.capture_lidar_scene(robot, lidar, timestep,
+            clust.capture_lidar_scene(robot, lidar, timestep, currentPos,
                         path=lidar_feature_csvpath)
             logging.info("Wrote feature {}'s points to CSV".format(i+1))
-            nav.prepare_to_map(robot, timestep, imu, wheels,
-                               (currentBearing + 90) % 360)
+            nav.prepare_to_map(robot, timestep, imu, wheels, targets[i][1])
+            # NTS: flag when areas of the feature have not been mapped
             nav.feature_mapping(robot, timestep, wheels, gps,
-                                hokuyoFront, hkfWidth, mappingDistance)
+                                hokuyoFront, hkfWidth, targets[i][2])
             break
 
 # Join log together

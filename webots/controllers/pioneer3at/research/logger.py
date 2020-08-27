@@ -36,7 +36,7 @@ def write_featurepoints(featurelist, gps_object, imu_object):
             robotbearing = robot_bearing(imu_object)
             for feature in featurelist:
 
-                outFeature = geojson.Feature(geometry=geojson.Point((feature[0],feature[2])),
+                outFeature = geojson.Feature(geometry=geojson.Point((feature[0][0],feature[0][2])),
                                              properties={})
                 geojson.dump(outFeature, outFile)
                 outFile.write("\n")

@@ -58,7 +58,7 @@ def prepare_to_map(robot, timestep, imu, wheels, targetBearing):
         else:
             return
 
-
+# NTS: need to improve mapping, use front sensor to avoid nothing loop
 def feature_mapping(robot, timestep, wheels, gps, hokuyo, width, threshold):
 
     # calculate thresholds for sonar offset
@@ -87,10 +87,10 @@ def feature_mapping(robot, timestep, wheels, gps, hokuyo, width, threshold):
 
         # Navigate the robot around the feature until it returns
         # to its starting point
-        if hasMoved and distanceToStart < 1:
+        if hasMoved and distanceToStart < const.LOOP_THRESHOLD:
             return
 
-        elif not hasMoved and distanceToStart > 1:
+        elif not hasMoved and distanceToStart > const.LOOP_THRESHOLD:
             hasMoved = True
 
         else:
