@@ -9,8 +9,10 @@
 '''
 
 import math
+import os
+import logging
 import research.constants as const
-
+import research.clustering as clust
 
 def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold,
                     maxRange, braitenbergCoefficients):
@@ -56,38 +58,59 @@ def prepare_to_map(robot, timestep, imu, wheels, targetBearing):
             set_velocity(wheels, const.MAX_SPEED, -const.MAX_SPEED)
 
         else:
+            set_velocity(wheels, 0, 0)
             return
 
 # NTS: need to improve mapping, use front sensor to avoid nothing loop
-def feature_mapping(robot, timestep, wheels, gps, hokuyo, width, threshold):
+def feature_mapping(robot, timestep, wheels, gps, imu, lidar, hokuyo, width, threshold, i):
 
-    # calculate thresholds for sonar offset
+    # Identify which scan lines to use and calculate thresholds
+    front = round(width/2)
+    frontSide = round(width/3)
+    side = round(width/6)
     threshold = threshold
     thresholdBuffer = threshold + 0.1
     frontSideThreshold = math.sqrt(threshold)
     frontSideThresholdBuffer = frontSideThreshold + 0.1
+    frontThreshold = threshold
+    frontThresholdBuffer = threshold + 0.1
 
     # Calculate starting position
     robot.step(timestep)
     currentPos = robot_position(gps)
+    currentBearing = robot_bearing(imu)
     startingPos = currentPos
+    lastScanPos = currentPos
     hasMoved = False
-    # front = round(width/2)  # Not used.
-    frontSide = round(width/3)
-    side = round(width/6)
+  
+    # Capture first scan
+    lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
+                                        'lidar_feature' + str(i) + '.xyz')
+    clust.capture_lidar_scene(robot, lidar, timestep, currentPos, currentBearing,
+                path=lidar_feature_csvpath, scan='feature', threshold=threshold)
 
     # Loop for feature mapping
     while robot.step(timestep) != -1:
 
         # Continually calculate and update robot position
         # and distance to feature mapping start point
+        # taking a new feature scan at a given threshold
         currentPos = robot_position(gps)
+        currentBearing = robot_bearing(imu)
         distanceToStart = target_distance(currentPos, startingPos)
         values = hokuyo.getRangeImage()
 
         # Navigate the robot around the feature until it returns
         # to its starting point
-        if hasMoved and distanceToStart < const.LOOP_THRESHOLD:
+        if target_distance(lastScanPos, currentPos) > \
+            const.SCAN_THRESHOLD:
+            clust.capture_lidar_scene(robot, lidar, timestep, currentPos, currentBearing,
+                path=lidar_feature_csvpath, method='a', scan='feature',
+                threshold=threshold)
+            lastScanPos = currentPos
+        
+        elif hasMoved and distanceToStart < const.LOOP_THRESHOLD:
+            logging.info("Mapped feature #{} and stored points in CSV".format(i+1))
             return
 
         elif not hasMoved and distanceToStart > const.LOOP_THRESHOLD:
@@ -95,11 +118,13 @@ def feature_mapping(robot, timestep, wheels, gps, hokuyo, width, threshold):
 
         else:
             if values[side] < threshold \
-                    or values[frontSide] < frontSideThreshold:
+                or values[frontSide] < frontSideThreshold \
+                or values[front] < frontThreshold:
                 set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED*0.6)
 
             elif values[side] > thresholdBuffer \
-                    or values[frontSide] > frontSideThresholdBuffer:
+                or values[frontSide] > frontSideThresholdBuffer \
+                or values[front] > frontThreshold:
                 set_velocity(wheels, const.MAX_SPEED*0.6, const.MAX_SPEED)
 
             else:

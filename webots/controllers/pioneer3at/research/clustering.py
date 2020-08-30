@@ -32,7 +32,7 @@ def get_targets(robot, timestep, lidar, location):
 
     # Capture lidar scene and identify features
     logging.debug("Acquiring LiDAR scan ...")
-    point_array = capture_lidar_scene(robot, lidar, timestep, location)
+    point_array = capture_lidar_scene(robot, lidar, timestep, location, 0)
 
     # Detect features/clusters within lidar scene
     logging.debug("Clustering LiDAR scan ...")
@@ -96,13 +96,14 @@ def get_targets(robot, timestep, lidar, location):
 
     return targets[1:]
 
-def capture_lidar_scene(robot, lidar_device, timestep, location,
-                        path=os.path.join(const.OUTPUT_PATH, 'points.xyz')):
+def capture_lidar_scene(robot, lidar_device, timestep, location, bearing,
+                        path=os.path.join(const.OUTPUT_PATH, 'points.xyz'),
+                        method='w', scan='full', threshold=20):
 
     point_list = []
 
     # Capture lidar points in a csv
-    with open(path, 'w', newline='') as outfile:
+    with open(path, method, newline='') as outfile:
         csvwriter = csv.writer(outfile)
         
         # Due to lidar intricacies every fifth step yields a full scan
@@ -116,14 +117,29 @@ def capture_lidar_scene(robot, lidar_device, timestep, location,
 
             distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
 
-            if row.y > -0.5 and row.y < 5 and distance < 25:
-                csvwriter.writerow([row.x, row.y, row.z])
-                point_list.append((row.x, row.y, row.z))
+            if scan == 'feature':
+                if row.y > -0.5 and row.y < 5 \
+                    and row.x < 0 and row.z < 5 and row.z > -5 \
+                    and distance < threshold + 5:
+                    point_list.append((row.x, row.y, row.z))
+            else:
+                if row.y > -0.5 and row.y < 5 and distance < threshold + 5:
+                    csvwriter.writerow([row.x, row.y, row.z])
+                    point_list.append((row.x, row.y, row.z))
 
-    # Read written csv into point cloud type and translate and rotate it
-    # pcd = o3d.io.read_point_cloud(path)
-    # print(pcd)
-    # pcd.translate(location)
+        print(nav.difference(location, const.HOME_LOCATION))
+        print(bearing)
+
+        # Read scan data into point cloud type, translate and rotate it
+        if scan == 'feature':
+            xyz = np.array(point_list)
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(xyz)
+            pcd.translate(nav.difference(location, const.HOME_LOCATION))
+            R = pcd.get_rotation_matrix_from_axis_angle(np.array([0,bearing,0]))
+            print(R)
+            pcd.rotate(R, const.HOME_LOCATION)
+            np.savetxt(outfile, pcd.points, delimiter=",")
 
     logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
     

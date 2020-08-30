@@ -165,15 +165,10 @@ for i in range(len(targets)):
 
         else:
             logging.info("Starting to map feature #{} at: {:.3f}x, {:.3f}y, {:.3f}z".format(i+1, *currentPos))
-            lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
-                                              'lidar_feature' + str(i) + '.csv')
-            clust.capture_lidar_scene(robot, lidar, timestep, currentPos,
-                        path=lidar_feature_csvpath)
-            logging.info("Wrote feature {}'s points to CSV".format(i+1))
             nav.prepare_to_map(robot, timestep, imu, wheels, targets[i][1])
             # NTS: flag when areas of the feature have not been mapped
-            nav.feature_mapping(robot, timestep, wheels, gps,
-                                hokuyoFront, hkfWidth, targets[i][2])
+            nav.feature_mapping(robot, timestep, wheels, gps, imu, lidar,
+                                hokuyoFront, hkfWidth, targets[i][2], i)
             break
 
 # Join log together
