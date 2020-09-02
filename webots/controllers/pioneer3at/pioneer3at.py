@@ -98,7 +98,7 @@ logging.info("{} features found -- Beginning survey".format(len(targets)-1))
 
 # Loop through the target features provided
 for i in range(len(targets)):
-    
+
     # Calculate initial bearing to target feature
     robot.step(timestep)
     startingPos = nav.robot_position(gps)
@@ -109,7 +109,7 @@ for i in range(len(targets)):
 
     # Navigate robot to the feature
     while robot.step(timestep) != -1:
-        
+
         # Continually calculate and update robot position,
         # bearing and distance to target feature
         currentPos = nav.robot_position(gps)
@@ -128,38 +128,35 @@ for i in range(len(targets)):
             targetBearing = nav.target_bearing(currentPos, targets[i][0])
             startingPos = currentPos
 
-        elif targetDistance > const.MAPPING_THRESHOLD \
-                and obstacle[2] > const.OBSTACLE_THRESHOLD:
-            speed_factor = (1.0 - const.DECREASE_FACTOR * obstacle[2]) \
-                            * const.MAX_SPEED / obstacle[2]
-            nav.set_velocity(wheels, speed_factor * obstacle[0],
-                             speed_factor * obstacle[1])
-
-        elif targetDistance > const.MAPPING_THRESHOLD \
-                and obstacle[2] > \
-                    const.OBSTACLE_THRESHOLD - const.OBSTACLE_BUFFER:
-            nav.set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED)
-            flag = False
-
-        elif flag == False:
-            targetBearing = nav.target_bearing(currentPos, targets[i][0])
-            flag = True
-
-        elif targetDistance > const.MAPPING_THRESHOLD \
-                and abs(targetBearing - currentBearing) > const.ANGULAR_THRESHOLD \
-                and (targetBearing - currentBearing + 360) % 360 > 180:
-            nav.set_velocity(wheels, const.MAX_SPEED*0.5, const.MAX_SPEED)
-
-        elif targetDistance > const.MAPPING_THRESHOLD \
-                and abs(targetBearing - currentBearing) > const.ANGULAR_THRESHOLD \
-                and (targetBearing - currentBearing + 360) % 360 < 180:
-            nav.set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED*0.5)
-
+        # If still away from the object, create cases
         elif targetDistance > const.MAPPING_THRESHOLD:
-            nav.set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED)
+            logging.info(obstacle)
+            if obstacle[2] > const.OBSTACLE_THRESHOLD:
+                speed_factor = (1.0 - const.DECREASE_FACTOR * obstacle[2]) \
+                    * (const.MAX_SPEED / obstacle[2])
+                nav.set_velocity(wheels, speed_factor * obstacle[0],
+                                 speed_factor * obstacle[1])
+
+            elif obstacle[2] > (const.OBSTACLE_THRESHOLD - const.OBSTACLE_BUFFER):
+                nav.set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED)
+                flag = False
+
+            elif flag == False:
+                targetBearing = nav.target_bearing(currentPos, targets[i][0])
+                flag = True
+
+            elif abs(targetBearing - currentBearing) > const.ANGULAR_THRESHOLD \
+                    and (targetBearing - currentBearing + 360) % 360 > 180:
+                nav.set_velocity(wheels, const.MAX_SPEED*0.5, const.MAX_SPEED)
+
+            elif abs(targetBearing - currentBearing) > const.ANGULAR_THRESHOLD \
+                    and (targetBearing - currentBearing + 360) % 360 < 180:
+                nav.set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED*0.5)
+            else:
+                nav.set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED)
 
         elif i == len(targets)-1:
-            print("Survey complete")
+            logging.info("Survey complete")
             nav.set_velocity(wheels, 0, 0)
             break
 
