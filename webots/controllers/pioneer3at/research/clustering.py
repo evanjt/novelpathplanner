@@ -25,6 +25,7 @@ def get_targets(robot, timestep, lidar, location):
     # Before beginning survey scan surrounds, cluster the scene,
     # return clusters for feature mapping
     
+    bboxList = []
     mappingDists = [] 
     bearingList = []
     featureList = []
@@ -38,7 +39,7 @@ def get_targets(robot, timestep, lidar, location):
     logging.debug("Clustering LiDAR scan ...")
     features = cluster_points(point_array)
     
-    # Obtain the centroid of each cluster
+    # Obtain the bbox of each cluster
     # Due to differences between the world and the point cloud x=z and z=x
     for feature in features:
         xmax = max(feature, key=lambda x: x[0])[0]
@@ -47,6 +48,8 @@ def get_targets(robot, timestep, lidar, location):
         # ymin = min(feature, key=lambda x: x[1])[1]
         zmax = max(feature, key=lambda x: x[2])[2]
         zmin = min(feature, key=lambda x: x[2])[2]
+
+        bboxList.append([xmin, xmax, zmin, zmax])
 
         mappingDist = (ymax+const.SCANNER_HEIGHT)/ \
             math.tan(math.radians(const.VERTICAL_VOF))
@@ -80,12 +83,14 @@ def get_targets(robot, timestep, lidar, location):
 
     # Re-order features based on tsp, add Y coordinate,
     # and add home as last feature
+    bboxList.insert(0,0)
     bearingList.insert(0,0)
     mappingDists.insert(0,0)
     targets.append([const.HOME_LOCATION, 0])
     for ind, val in enumerate(t[1]):
         featureList[val].insert(1,0)
-        targets.insert(ind, [featureList[val], bearingList[val], mappingDists[val]])
+        targets.insert(ind, [featureList[val], bearingList[val], \
+            mappingDists[val], bboxList[val]])
 
     # Save feature locations to file
     with open(os.path.join(const.OUTPUT_PATH,'features.csv'),
@@ -140,6 +145,9 @@ def capture_lidar_scene(robot, lidar_device, timestep, location, bearing,
             print(R)
             pcd.rotate(R, const.HOME_LOCATION)
             np.savetxt(outfile, pcd.points, delimiter=",")
+            logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
+    
+            return np.array(pcd.points)
 
     logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
     

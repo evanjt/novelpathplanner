@@ -1,13 +1,15 @@
-08-30 21:52:48 GNSS  DEBUG Starting log for Pioneer3at
-08-30 21:52:48 root  INFO  Pioneer is scanning surrounding area for features
-08-30 21:52:48 root  DEBUG Acquiring LiDAR scan ...
-08-30 21:52:54 root  INFO  Captured 10444 points in LiDAR scene
-08-30 21:52:54 root  DEBUG Clustering LiDAR scan ...
-08-30 21:52:55 pulp.apis.core DEBUG C:\Users\joshc\AppData\Local\Programs\Python\Python37\lib\site-packages\pulp\apis\..\solverdir\cbc\win\64\cbc.exe C:\Users\joshc\AppData\Local\Temp\42ee127cf80341b182d5c63f97f59ae9-pulp.mps ratio None allow None threads None presolve on strong None gomory on knapsack on probing on branch printingOptions all solution C:\Users\joshc\AppData\Local\Temp\42ee127cf80341b182d5c63f97f59ae9-pulp.sol 
-08-30 21:52:55 root  INFO  5 features found -- Beginning survey
-08-30 21:52:55 root  INFO  Heading to feature 1 at: -1.915x, 0.000y, 2.928z
-08-30 21:52:55 root  INFO  Along bearing: 33.181114
-08-30 21:53:20 root  INFO  Starting to map feature #1 at: -1.897x, 0.007y, 2.444z
-08-30 21:53:30 root  INFO  Captured 11567 points in LiDAR scene
-08-30 21:54:29 root  INFO  Captured 13141 points in LiDAR scene
-08-30 21:57:41 root  INFO  Captured 8938 points in LiDAR scene
+09-02 22:12:31 GNSS  DEBUG Starting log for Pioneer3at
+09-02 22:12:31 root  INFO  Pioneer is scanning surrounding area for features
+09-02 22:12:31 root  DEBUG Acquiring LiDAR scan ...
+09-02 22:12:37 root  INFO  Captured 10416 points in LiDAR scene
+09-02 22:12:37 root  DEBUG Clustering LiDAR scan ...
+09-02 22:12:38 pulp.apis.core DEBUG C:\Users\joshc\AppData\Local\Programs\Python\Python37\lib\site-packages\pulp\apis\..\solverdir\cbc\win\64\cbc.exe C:\Users\joshc\AppData\Local\Temp\0e2f35672aed4fa5867d1fb10826f247-pulp.mps ratio None allow None threads None presolve on strong None gomory on knapsack on probing on branch printingOptions all solution C:\Users\joshc\AppData\Local\Temp\0e2f35672aed4fa5867d1fb10826f247-pulp.sol 
+09-02 22:12:38 root  INFO  5 features found -- Beginning survey
+09-02 22:12:38 root  INFO  Heading to feature 1 at: -1.931x, 0.000y, 3.165z
+09-02 22:12:38 root  INFO  Along bearing: 31.381953
+09-02 22:12:55 root  INFO  Starting to map feature #1 at: -1.928x, 0.007y, 2.671z
+09-02 22:12:58 root  DEBUG Acquiring LiDAR scan ...
+09-02 22:13:05 root  INFO  Captured 11711 points in LiDAR scene
+09-02 22:13:05 root  DEBUG Clustering LiDAR scan ...
+09-02 22:13:07 root  INFO  Heading to feature 2 at: 1.323x, 0.000y, 7.402z
+09-02 22:13:07 root  INFO  Along bearing: 321.721710

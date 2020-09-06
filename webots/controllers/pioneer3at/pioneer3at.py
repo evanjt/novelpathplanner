@@ -51,8 +51,8 @@ gps.enable(timestep)
 imu = robot.getInertialUnit('imu')
 imu.enable(timestep)
 
-# cameraRange = robot.getRangeFinder("MultiSenseS21 meta range finder")
-# cameraRange.enable(timestep)
+cameraRange = robot.getRangeFinder("MultiSenseS21 meta range finder")
+cameraRange.enable(timestep)
 # cameraCenter = robot.getCamera("MultiSenseS21 meta camera")
 # cameraCenter.enable(timestep)
 # cameraLeft = robot.getCamera("MultiSenseS21 left camera")
@@ -167,8 +167,14 @@ for i in range(len(targets)):
             logging.info("Starting to map feature #{} at: {:.3f}x, {:.3f}y, {:.3f}z".format(i+1, *currentPos))
             nav.prepare_to_map(robot, timestep, imu, wheels, targets[i][1])
             # NTS: flag when areas of the feature have not been mapped
-            nav.feature_mapping(robot, timestep, wheels, gps, imu, lidar,
+            print(targets[i][3], targets[i][2])
+            if const.DEVICE == 'lidar':
+                nav.lidar_mapping(robot, timestep, wheels, gps, imu, lidar,
                                 hokuyoFront, hkfWidth, targets[i][2], i)
+            elif const.DEVICE == 'camera':
+                nav.camera_mapping(robot, timestep, wheels, gps, imu, cameraRange,\
+                    lidar, targets[i], i)
+            print(targets[i][3], targets[i][2])
             break
 
 # Join log together

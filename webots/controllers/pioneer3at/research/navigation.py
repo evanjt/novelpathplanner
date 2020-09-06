@@ -62,7 +62,7 @@ def prepare_to_map(robot, timestep, imu, wheels, targetBearing):
             return
 
 # NTS: need to improve mapping, use front sensor to avoid nothing loop
-def feature_mapping(robot, timestep, wheels, gps, imu, lidar, hokuyo, width, threshold, i):
+def lidar_mapping(robot, timestep, wheels, gps, imu, lidar, hokuyo, width, threshold, i):
 
     # Identify which scan lines to use and calculate thresholds
     front = round(width/2)
@@ -129,6 +129,61 @@ def feature_mapping(robot, timestep, wheels, gps, imu, lidar, hokuyo, width, thr
 
             else:
                 set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED)
+
+def camera_mapping(robot, timestep, wheels, gps, imu, camera, lidar, targets, i):
+
+    bbox = targets[3]
+    threshold = targets[2]
+
+    robot.step(timestep)
+    currentPos = robot_position(gps)
+    currentBearing = robot_bearing(imu)
+    
+    # Capture lidar scene and identify features
+    logging.debug("Acquiring LiDAR scan ...")
+    lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
+                                        'lidar_feature' + str(i) + '.xyz')
+    point_array = clust.capture_lidar_scene(robot, lidar, timestep, \
+        currentPos, currentBearing, path=lidar_feature_csvpath, \
+            scan='feature', threshold=threshold)
+
+    # Detect features/clusters within lidar scene
+    logging.debug("Clustering LiDAR scan ...")
+    features = clust.cluster_points(point_array)
+
+    if len(features) > 1:
+        print("Warning one feature expected but multiple detected")
+
+    # NTS: need to properly rotate the cloud for accurate bbox update
+    # NTS: could potentially be other problems with the bbox update
+    for feature in features:
+        xmax = max(feature, key=lambda x: x[0])[0]
+        xmin = min(feature, key=lambda x: x[0])[0]
+        ymax = max(feature, key=lambda x: x[1])[1]
+        zmax = max(feature, key=lambda x: x[2])[2]
+        zmin = min(feature, key=lambda x: x[2])[2]
+
+    if xmin < bbox[0]:
+        bbox[0] = xmin
+        print("xmin changed")
+    if xmax > bbox[1]:
+        bbox[1] = xmax
+        print("xmax changed")
+    if zmin < bbox[2]:
+        bbox[2] = zmin
+        print("zmin changed")
+    if zmax > bbox[3]:
+        bbox[3] = zmax
+        print("zmax changed")
+    if ymax > threshold:
+        threshold = ymax
+        print("mapping dist changed")
+
+    # NTS: once bbox is updated need to calc if there needs to be a change to mapping locations based on bbox dimensions and mappingdist
+
+    # NTS: need to first calculate rough mapping locations based on initial scan
+
+    # NTS: once mapping locations have been updated smoothly move to the next point using ET1's trajectory function and take a photo, then re-check the bbox and mappingdist and repat until return to starting location
 
 
 def getBraitenberg(robot, width, halfWidth):
