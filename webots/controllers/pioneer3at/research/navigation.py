@@ -39,36 +39,35 @@ def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold,
     return leftObstacle, rightObstacle, leftObstacle + rightObstacle
 
 
-def prepare_to_map(robot, timestep, imu, wheels, targetBearing):
+def prepare_to_map(pioneer3at, targetBearing):
 
     # Loop for rotating the robot side on with the feature
-    while robot.step(timestep) != -1:
+    while pioneer3at.robot.step(pioneer3at.timestep) != -1:
 
         # Continually calculate and update robot bearing
-        currentBearing = robot_bearing(imu)
+        currentBearing = robot_bearing(pioneer3at.imu)
 
         # Move the robot until side on with the target feature
         # Once side on mark the startingposition of the feature mapping
         if abs(targetBearing - currentBearing) > 1 \
                 and (targetBearing - currentBearing + 360) % 360 > 180:
-            set_velocity(wheels, -const.MAX_SPEED, const.MAX_SPEED)
+            set_velocity(pioneer3at.wheels, -const.MAX_SPEED, const.MAX_SPEED)
 
         elif abs(targetBearing - currentBearing) > 1 \
                 and (targetBearing - currentBearing + 360) % 360 < 180:
-            set_velocity(wheels, const.MAX_SPEED, -const.MAX_SPEED)
+            set_velocity(pioneer3at.wheels, const.MAX_SPEED, -const.MAX_SPEED)
 
         else:
-            set_velocity(wheels, 0, 0)
+            set_velocity(pioneer3at.wheels, 0, 0)
             return
 
 # NTS: need to improve mapping, use front sensor to avoid nothing loop
-def feature_mapping(robot, timestep, wheels, gps, imu, lidar, hokuyo, width, threshold, i):
+def feature_mapping(pioneer3at, threshold, i):
 
     # Identify which scan lines to use and calculate thresholds
-    front = round(width/2)
-    frontSide = round(width/3)
-    side = round(width/6)
-    threshold = threshold
+    front = round(pioneer3at.hkfWidth/2)
+    frontSide = round(pioneer3at.hkfWidth/3)
+    side = round(pioneer3at.hkfWidth/6)
     thresholdBuffer = threshold + 0.1
     frontSideThreshold = math.sqrt(threshold)
     frontSideThresholdBuffer = frontSideThreshold + 0.1
@@ -76,39 +75,41 @@ def feature_mapping(robot, timestep, wheels, gps, imu, lidar, hokuyo, width, thr
     frontThresholdBuffer = threshold + 0.1
 
     # Calculate starting position
-    robot.step(timestep)
-    currentPos = robot_position(gps)
-    currentBearing = robot_bearing(imu)
+    pioneer3at.robot.step(pioneer3at.timestep)
+    currentPos = robot_position(pioneer3at.gps)
+    currentBearing = robot_bearing(pioneer3at.imu)
     startingPos = currentPos
     lastScanPos = currentPos
     hasMoved = False
-  
+
     # Capture first scan
     lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
                                         'lidar_feature' + str(i) + '.xyz')
-    clust.capture_lidar_scene(robot, lidar, timestep, currentPos, currentBearing,
+    clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.lidar, pioneer3at.timestep, currentPos, currentBearing,
                 path=lidar_feature_csvpath, scan='feature', threshold=threshold)
 
     # Loop for feature mapping
-    while robot.step(timestep) != -1:
+    while pioneer3at.robot.step(pioneer3at.timestep) != -1:
 
         # Continually calculate and update robot position
         # and distance to feature mapping start point
         # taking a new feature scan at a given threshold
-        currentPos = robot_position(gps)
-        currentBearing = robot_bearing(imu)
+        currentPos = robot_position(pioneer3at.gps)
+        currentBearing = robot_bearing(pioneer3at.imu)
         distanceToStart = target_distance(currentPos, startingPos)
-        values = hokuyo.getRangeImage()
+        values = pioneer3at.hokuyoFront.getRangeImage()
 
         # Navigate the robot around the feature until it returns
         # to its starting point
         if target_distance(lastScanPos, currentPos) > \
             const.SCAN_THRESHOLD:
-            clust.capture_lidar_scene(robot, lidar, timestep, currentPos, currentBearing,
-                path=lidar_feature_csvpath, method='a', scan='feature',
-                threshold=threshold)
+            clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.lidar, pioneer3at.timestep,
+                                      currentPos, currentBearing,
+                                      path=lidar_feature_csvpath,
+                                      method='a', scan='feature',
+                                      threshold=threshold)
             lastScanPos = currentPos
-        
+
         elif hasMoved and distanceToStart < const.LOOP_THRESHOLD:
             logging.info("Mapped feature #{} and stored points in CSV".format(i+1))
             return
@@ -120,15 +121,15 @@ def feature_mapping(robot, timestep, wheels, gps, imu, lidar, hokuyo, width, thr
             if values[side] < threshold \
                 or values[frontSide] < frontSideThreshold \
                 or values[front] < frontThreshold:
-                set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED*0.6)
+                set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED*0.6)
 
             elif values[side] > thresholdBuffer \
                 or values[frontSide] > frontSideThresholdBuffer \
                 or values[front] > frontThreshold:
-                set_velocity(wheels, const.MAX_SPEED*0.6, const.MAX_SPEED)
+                set_velocity(pioneer3at.wheels, const.MAX_SPEED*0.6, const.MAX_SPEED)
 
             else:
-                set_velocity(wheels, const.MAX_SPEED, const.MAX_SPEED)
+                set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
 
 
 def getBraitenberg(robot, width, halfWidth):
@@ -222,3 +223,64 @@ def xyDistance(pair1, pair2):
     displacement = pair1[0] - pair2[0], pair1[1] - pair2[1]
 
     return math.sqrt((displacement[0])**2 + (displacement[1])**2)
+
+def nav_to_point(i, target, pioneer3at, flag, startingPos, targetBearing):
+
+                 #gps, imu, timestep, robot, , , ,
+                     #hokuyoFront, hkfWidth, hkfHalfWidth, hkfRangeThreshold, hkfMaxRange,
+                     #hkfBraitenbergCoefficients, wheels, lidar):
+
+    # Navigate robot to the feature
+    while pioneer3at.robot.step(pioneer3at.timestep) != -1:
+        # Continually calculate and update robot position,
+        # bearing and distance to target feature
+        currentPos = robot_position(pioneer3at.gps)
+        currentBearing = robot_bearing(pioneer3at.imu)
+        targetDistance = target_distance(currentPos, target[0])
+
+        # Continually detect obstacles
+        obstacle = detect_obstacle(pioneer3at.robot, pioneer3at.hokuyoFront,
+                                       pioneer3at.hkfWidth, pioneer3at.hkfHalfWidth,
+                                       pioneer3at.hkfRangeThreshold, pioneer3at.hkfMaxRange,
+                                       pioneer3at.hkfBraitenbergCoefficients)
+
+        # Once within range map the feature, stop once returned home
+        if target_distance(startingPos, currentPos) > \
+            const.MOVEMENT_THRESHOLD:
+            targetBearing = target_bearing(currentPos, target[0])
+            startingPos = currentPos
+
+        # If still away from the object, create cases
+        elif targetDistance > const.MAPPING_THRESHOLD:
+            #logging.info(obstacle)
+            if obstacle[2] > const.OBSTACLE_THRESHOLD:
+                speed_factor = (1.0 - const.DECREASE_FACTOR * obstacle[2]) \
+                    * (const.MAX_SPEED / obstacle[2])
+                set_velocity(pioneer3at.wheels, speed_factor * obstacle[0],
+                                 speed_factor * obstacle[1])
+
+            elif obstacle[2] > (const.OBSTACLE_THRESHOLD - const.OBSTACLE_BUFFER):
+                set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
+                flag = False
+
+            elif flag == False:
+                targetBearing = target_bearing(currentPos, target[0])
+                flag = True
+
+            elif abs(targetBearing - currentBearing) > const.ANGULAR_THRESHOLD \
+                    and (targetBearing - currentBearing + 360) % 360 > 180:
+                set_velocity(pioneer3at.wheels, const.MAX_SPEED*0.5, const.MAX_SPEED)
+
+            elif abs(targetBearing - currentBearing) > const.ANGULAR_THRESHOLD \
+                    and (targetBearing - currentBearing + 360) % 360 < 180:
+                set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED*0.5)
+            else:
+                set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
+
+        #elif i == len(targets)-1:
+            #logging.info("Survey complete")
+            #set_velocity(wheels, 0, 0)
+            #break
+
+        else:
+            return currentPos, currentBearing

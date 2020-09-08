@@ -24,8 +24,8 @@ def get_targets(robot, timestep, lidar, location):
 
     # Before beginning survey scan surrounds, cluster the scene,
     # return clusters for feature mapping
-    
-    mappingDists = [] 
+
+    mappingDists = []
     bearingList = []
     featureList = []
     targets = []
@@ -37,7 +37,7 @@ def get_targets(robot, timestep, lidar, location):
     # Detect features/clusters within lidar scene
     logging.debug("Clustering LiDAR scan ...")
     features = cluster_points(point_array)
-    
+
     # Obtain the centroid of each cluster
     # Due to differences between the world and the point cloud x=z and z=x
     for feature in features:
@@ -82,7 +82,7 @@ def get_targets(robot, timestep, lidar, location):
     # and add home as last feature
     bearingList.insert(0,0)
     mappingDists.insert(0,0)
-    targets.append([const.HOME_LOCATION, 0])
+    targets.append([const.HOME_LOCATION, 0, 0])
     for ind, val in enumerate(t[1]):
         featureList[val].insert(1,0)
         targets.insert(ind, [featureList[val], bearingList[val], mappingDists[val]])
@@ -105,9 +105,9 @@ def capture_lidar_scene(robot, lidar_device, timestep, location, bearing,
     # Capture lidar points in a csv
     with open(path, method, newline='') as outfile:
         csvwriter = csv.writer(outfile)
-        
+
         # Due to lidar intricacies every fifth step yields a full scan
-        # NTS: Will this ensure the correct point cloud is returned every time? 
+        # NTS: Will this ensure the correct point cloud is returned every time?
         for i in range(5):
             robot.step(timestep)
             cloud = lidar_device.getPointCloud()
@@ -127,8 +127,8 @@ def capture_lidar_scene(robot, lidar_device, timestep, location, bearing,
                     csvwriter.writerow([row.x, row.y, row.z])
                     point_list.append((row.x, row.y, row.z))
 
-        print(nav.difference(location, const.HOME_LOCATION))
-        print(bearing)
+        #print(nav.difference(location, const.HOME_LOCATION))
+        #print(bearing)
 
         # Read scan data into point cloud type, translate and rotate it
         if scan == 'feature':
@@ -137,12 +137,12 @@ def capture_lidar_scene(robot, lidar_device, timestep, location, bearing,
             pcd.points = o3d.utility.Vector3dVector(xyz)
             pcd.translate(nav.difference(location, const.HOME_LOCATION))
             R = pcd.get_rotation_matrix_from_axis_angle(np.array([0,bearing,0]))
-            print(R)
+            #print(R)
             pcd.rotate(R, const.HOME_LOCATION)
             np.savetxt(outfile, pcd.points, delimiter=",")
 
     logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
-    
+
     return np.array(point_list)
 
 def cluster_points(array):
@@ -168,11 +168,11 @@ def cluster_points(array):
             # NTS: need better hueristic to id what clusters are features
             xdist = max(clusters[cluster][0]) - min(clusters[cluster][0])
             zdist = max(clusters[cluster][2]) - min(clusters[cluster][2])
-            
+
             if xdist > const.FEATURE_THRESHOLD \
                 or zdist > const.FEATURE_THRESHOLD:
                 features.append(clusters[cluster])
-                
+
                 # Print clusters to individual files
                 # path=os.path.join(const.OUTPUT_PATH,  str(cluster)+'.xyz')
                 # with open(path, 'w', newline='') as outfile:

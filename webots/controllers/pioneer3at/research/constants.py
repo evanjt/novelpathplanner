@@ -11,7 +11,7 @@ import os
 
 
 # define home location
-HOME_LOCATION  =[0, 0, 0]
+HOME_LOCATION = [0, 0, 0]
 
 # define other variables
 MAX_SPEED = 5.24
