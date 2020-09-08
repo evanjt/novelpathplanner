@@ -225,11 +225,6 @@ def xyDistance(pair1, pair2):
     return math.sqrt((displacement[0])**2 + (displacement[1])**2)
 
 def nav_to_point(i, target, pioneer3at, flag, startingPos, targetBearing):
-
-                 #gps, imu, timestep, robot, , , ,
-                     #hokuyoFront, hkfWidth, hkfHalfWidth, hkfRangeThreshold, hkfMaxRange,
-                     #hkfBraitenbergCoefficients, wheels, lidar):
-
     # Navigate robot to the feature
     while pioneer3at.robot.step(pioneer3at.timestep) != -1:
         # Continually calculate and update robot position,

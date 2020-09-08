@@ -26,7 +26,6 @@ pioneer3at.addWheels(['front left wheel', 'front right wheel',
                       'back left wheel', 'back right wheel'])
 pioneer3at.startLogging()
 
-
 # Find targets to scan
 logging.info("Pioneer is scanning surrounding area for features")
 targets = clust.get_targets(pioneer3at.robot,
