@@ -82,7 +82,7 @@ def get_targets(robot, timestep, lidar, location):
     # and add home as last feature
     bearingList.insert(0,0)
     mappingDists.insert(0,0)
-    targets.append([const.HOME_LOCATION, 0, 0])
+    targets.append([const.HOME_LOCATION, 0])
     for ind, val in enumerate(t[1]):
         featureList[val].insert(1,0)
         targets.insert(ind, [featureList[val], bearingList[val], mappingDists[val]])

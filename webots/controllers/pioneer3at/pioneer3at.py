@@ -38,7 +38,7 @@ logging.info("{} features found -- Beginning survey".format(len(targets)-1))
 # Loop through the target features provided
 while pioneer3at.robot.step(pioneer3at.timestep) != -1:
     for i, target in enumerate(targets):
-
+        print(target)
         # Calculate initial bearing to target feature
         pioneer3at.robot.step(pioneer3at.timestep)
         startingPos = nav.robot_position(pioneer3at.gps)

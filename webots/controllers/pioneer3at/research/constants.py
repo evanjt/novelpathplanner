@@ -28,6 +28,7 @@ OBSTACLE_BUFFER = 0.05
 DECREASE_FACTOR = 0.9
 COORDINATE_FILENAME = 'coordinates.json'
 FEATURE_FILENAME = 'featurepoints.json'
+MAPPING_DISTANCE = 2
 
 OUTPUT_PATH = os.path.abspath(os.path.join(os.getcwd(),
                                            os.pardir,

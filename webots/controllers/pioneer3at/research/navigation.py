@@ -170,7 +170,6 @@ def robot_bearing(imu):
 
 
 def target_bearing(current, target):
-
     displacement = difference(current, target)
     bearingToTarget = bearing(displacement)
 
@@ -190,8 +189,8 @@ def location_offset(position, x, y, z):
     return (position[0]+x, position[1]+y, position[2]+z)
 
 
+# Should these be opposite as to the inputs that are calling it?
 def difference(target, current):
-
     return (target[0] - current[0],
             target[1] - current[1],
             target[2] - current[2])
@@ -235,47 +234,38 @@ def nav_to_point(i, target, pioneer3at, flag, startingPos, targetBearing):
 
         # Continually detect obstacles
         obstacle = detect_obstacle(pioneer3at.robot, pioneer3at.hokuyoFront,
-                                       pioneer3at.hkfWidth, pioneer3at.hkfHalfWidth,
-                                       pioneer3at.hkfRangeThreshold, pioneer3at.hkfMaxRange,
-                                       pioneer3at.hkfBraitenbergCoefficients)
+                                   pioneer3at.hkfWidth, pioneer3at.hkfHalfWidth,
+                                   pioneer3at.hkfRangeThreshold, pioneer3at.hkfMaxRange,
+                                   pioneer3at.hkfBraitenbergCoefficients)
 
         # Once within range map the feature, stop once returned home
-        if target_distance(startingPos, currentPos) > \
-            const.MOVEMENT_THRESHOLD:
+        if targetDistance > const.MAPPING_DISTANCE and obstacle[2] > const.OBSTACLE_THRESHOLD:
+            speed_factor = (1.0 - (const.DECREASE_FACTOR * obstacle[2])) * \
+                                            (const.MAX_SPEED / obstacle[2])
+            set_velocity(pioneer3at.wheels, speed_factor * obstacle[0],
+                             speed_factor * obstacle[1])
+
+        elif targetDistance > const.MAPPING_DISTANCE \
+                and obstacle[2] > const.OBSTACLE_THRESHOLD-0.05:
+            set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
+            flag = False
+
+        elif flag == False:
             targetBearing = target_bearing(currentPos, target[0])
-            startingPos = currentPos
+            flag = True
 
-        # If still away from the object, create cases
-        elif targetDistance > const.MAPPING_THRESHOLD:
-            #logging.info(obstacle)
-            if obstacle[2] > const.OBSTACLE_THRESHOLD:
-                speed_factor = (1.0 - const.DECREASE_FACTOR * obstacle[2]) \
-                    * (const.MAX_SPEED / obstacle[2])
-                set_velocity(pioneer3at.wheels, speed_factor * obstacle[0],
-                                 speed_factor * obstacle[1])
+        elif targetDistance > const.MAPPING_DISTANCE \
+                and abs(targetBearing - currentBearing) > 1 \
+                and (targetBearing - currentBearing + 360) % 360 > 180:
+            set_velocity(pioneer3at.wheels, const.MAX_SPEED*0.5, const.MAX_SPEED)
 
-            elif obstacle[2] > (const.OBSTACLE_THRESHOLD - const.OBSTACLE_BUFFER):
-                set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
-                flag = False
+        elif targetDistance > const.MAPPING_DISTANCE \
+                and abs(targetBearing - currentBearing) > 1 \
+                and (targetBearing - currentBearing + 360) % 360 < 180:
+            set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED*0.5)
 
-            elif flag == False:
-                targetBearing = target_bearing(currentPos, target[0])
-                flag = True
-
-            elif abs(targetBearing - currentBearing) > const.ANGULAR_THRESHOLD \
-                    and (targetBearing - currentBearing + 360) % 360 > 180:
-                set_velocity(pioneer3at.wheels, const.MAX_SPEED*0.5, const.MAX_SPEED)
-
-            elif abs(targetBearing - currentBearing) > const.ANGULAR_THRESHOLD \
-                    and (targetBearing - currentBearing + 360) % 360 < 180:
-                set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED*0.5)
-            else:
-                set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
-
-        #elif i == len(targets)-1:
-            #logging.info("Survey complete")
-            #set_velocity(wheels, 0, 0)
-            #break
+        elif targetDistance > const.MAPPING_DISTANCE:
+            set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
 
         else:
             return currentPos, currentBearing
