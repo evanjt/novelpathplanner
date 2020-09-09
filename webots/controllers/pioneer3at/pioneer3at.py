@@ -27,6 +27,9 @@ robot = Robot()
 # get the time step of the current world.
 timestep = int(robot.getBasicTimeStep())
 
+# take the first simulation step
+robot.step(timestep)
+
 # get and enable robot devices
 hokuyoFront = robot.getLidar("HokuyoFront")
 hokuyoFront.enable(timestep)
@@ -44,6 +47,7 @@ hkfValues = []
 lidar = robot.getLidar('lidar')
 lidar.enable(timestep)
 lidar.enablePointCloud()
+#lidar.getPointCloud()
 
 gps = robot.getGPS('gps')
 gps.enable(timestep)

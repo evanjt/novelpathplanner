@@ -179,6 +179,8 @@ def camera_mapping(robot, timestep, wheels, gps, imu, camera, lidar, targets, i)
         threshold = ymax
         print("mapping dist changed")
 
+    # NTS: sections of the robot which are being scanned are affecting bbox changes
+    
     # NTS: once bbox is updated need to calc if there needs to be a change to mapping locations based on bbox dimensions and mappingdist
 
     # NTS: need to first calculate rough mapping locations based on initial scan

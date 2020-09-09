@@ -108,14 +108,40 @@ def capture_lidar_scene(robot, lidar_device, timestep, location, bearing,
     point_list = []
 
     # Capture lidar points in a csv
+    # with open(path, method, newline='') as outfile:
+    #     csvwriter = csv.writer(outfile)
+        
+    # Due to lidar intricacies every fifth step yields a full scan
+    # NTS: Will this ensure the correct point cloud is returned every time? 
+    # for i in range(10):
+    #     path2=os.path.join(const.OUTPUT_PATH,  str(i)+'.xyz')
+    #     with open(path2, 'w', newline='') as outfile:
+    #         csvwriter = csv.writer(outfile)
+    #         robot.step(timestep)
+    #         cloud = lidar_device.getPointCloud()
+    #         for row in cloud:
+    #             distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
+    #             if row.y > -0.5 and row.y < 5 and distance < threshold + 5:
+    #                 csvwriter.writerow([row.x, row.y, row.z])
+
+    # robot.step(timestep)
+    # robot.step(timestep)
+
+    # path3=os.path.join(const.OUTPUT_PATH, 'test.xyz')
+    # with open(path3, 'w', newline='') as outfile:
+    #     csvwriter = csv.writer(outfile)
+    #     robot.step(timestep)
+    #     cloud = lidar_device.getPointCloud()
+    #     for row in cloud:
+    #         distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
+    #         if row.y > -0.5 and row.y < 5 and distance < threshold + 5:
+    #             csvwriter.writerow([row.x, row.y, row.z])
+
     with open(path, method, newline='') as outfile:
         csvwriter = csv.writer(outfile)
-        
-        # Due to lidar intricacies every fifth step yields a full scan
-        # NTS: Will this ensure the correct point cloud is returned every time? 
-        for i in range(5):
-            robot.step(timestep)
-            cloud = lidar_device.getPointCloud()
+    
+        robot.step(timestep)
+        cloud = lidar_device.getPointCloud()
 
         # Filter the lidar point cloud
         for row in cloud:
@@ -140,10 +166,17 @@ def capture_lidar_scene(robot, lidar_device, timestep, location, bearing,
             xyz = np.array(point_list)
             pcd = o3d.geometry.PointCloud()
             pcd.points = o3d.utility.Vector3dVector(xyz)
-            pcd.translate(nav.difference(location, const.HOME_LOCATION))
-            R = pcd.get_rotation_matrix_from_axis_angle(np.array([0,bearing,0]))
-            print(R)
-            pcd.rotate(R, const.HOME_LOCATION)
+            pcd.translate(nav.difference([location[0],0,location[2]], const.HOME_LOCATION))
+            R = pcd.get_rotation_matrix_from_axis_angle(np.array([0,(bearing * -1 + 360) % 360,0]))
+            #R = pcd.get_rotation_matrix_from_axis_angle(np.array([0,(180-bearing+360)%360,0]))
+            shape = np.shape(np.array(R))
+            padded_array = np.zeros((4, 4))
+            padded_array[:shape[0],:shape[1]] = np.array(R)
+            padded_array[3][3]=1
+            print(padded_array)
+            # change rotation value to a multiple of 90 degrees as scans will only be taken along bbox axis, this can be automatically incremented
+            # pcd.rotate(R, [location[0],0,location[2]])
+            pcd.transform(padded_array)
             np.savetxt(outfile, pcd.points, delimiter=",")
             logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
     
