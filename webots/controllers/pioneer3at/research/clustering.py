@@ -137,10 +137,18 @@ def capture_lidar_scene(robot, lidar_device, timestep, location, bearing,
     #         if row.y > -0.5 and row.y < 5 and distance < threshold + 5:
     #             csvwriter.writerow([row.x, row.y, row.z])
 
+    # Due to lidar intricacies every fifth step yields a full scan
+    # NTS: Will this ensure the correct point cloud is returned every time?
+    # Was working before without this, why?
+    for i in range(5):
+        robot.step(timestep)
+        cloud = lidar_device.getPointCloud()
+
     with open(path, method, newline='') as outfile:
         csvwriter = csv.writer(outfile)
     
         robot.step(timestep)
+        print(lidar_device.getSamplingPeriod())
         cloud = lidar_device.getPointCloud()
 
         # Filter the lidar point cloud
@@ -158,8 +166,8 @@ def capture_lidar_scene(robot, lidar_device, timestep, location, bearing,
                     csvwriter.writerow([row.x, row.y, row.z])
                     point_list.append((row.x, row.y, row.z))
 
-        print(nav.difference(location, const.HOME_LOCATION))
-        print(bearing)
+        #print(nav.difference(location, const.HOME_LOCATION))
+        #print(bearing)
 
         # Read scan data into point cloud type, translate and rotate it
         if scan == 'feature':
@@ -183,7 +191,7 @@ def capture_lidar_scene(robot, lidar_device, timestep, location, bearing,
             return np.array(pcd.points)
 
     logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
-    
+
     return np.array(point_list)
 
 def cluster_points(array):
@@ -209,11 +217,11 @@ def cluster_points(array):
             # NTS: need better hueristic to id what clusters are features
             xdist = max(clusters[cluster][0]) - min(clusters[cluster][0])
             zdist = max(clusters[cluster][2]) - min(clusters[cluster][2])
-            
+
             if xdist > const.FEATURE_THRESHOLD \
                 or zdist > const.FEATURE_THRESHOLD:
                 features.append(clusters[cluster])
-                
+
                 # Print clusters to individual files
                 # path=os.path.join(const.OUTPUT_PATH,  str(cluster)+'.xyz')
                 # with open(path, 'w', newline='') as outfile:

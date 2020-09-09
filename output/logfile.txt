@@ -1,21 +1,12 @@
-09-06 23:08:13 GNSS  DEBUG Starting log for Pioneer3at
-09-06 23:08:13 root  INFO  Pioneer is scanning surrounding area for features
-09-06 23:08:13 root  DEBUG Acquiring LiDAR scan ...
-09-06 23:08:15 root  INFO  Captured 10462 points in LiDAR scene
-09-06 23:08:15 root  DEBUG Clustering LiDAR scan ...
-09-06 23:08:16 pulp.apis.core DEBUG C:\Users\joshc\AppData\Local\Programs\Python\Python37\lib\site-packages\pulp\apis\..\solverdir\cbc\win\64\cbc.exe C:\Users\joshc\AppData\Local\Temp\c569c946978840d89f94e917272da2a0-pulp.mps ratio None allow None threads None presolve on strong None gomory on knapsack on probing on branch printingOptions all solution C:\Users\joshc\AppData\Local\Temp\c569c946978840d89f94e917272da2a0-pulp.sol 
-09-06 23:08:16 root  INFO  5 features found -- Beginning survey
-09-06 23:08:17 root  INFO  Heading to feature 1 at: -7.724x, 0.000y, -7.118z
-09-06 23:08:17 root  INFO  Along bearing: 132.657674
-09-06 23:08:55 root  INFO  Starting to map feature #1 at: -7.452x, 0.007y, -6.733z
-09-06 23:08:59 root  DEBUG Acquiring LiDAR scan ...
-09-06 23:09:01 root  INFO  Captured 9423 points in LiDAR scene
-09-06 23:09:01 root  DEBUG Clustering LiDAR scan ...
-09-06 23:09:03 root  INFO  Heading to feature 2 at: 0.030x, 0.000y, -6.170z
-09-06 23:09:03 root  INFO  Along bearing: 274.053276
-09-06 23:09:32 root  INFO  Starting to map feature #2 at: -0.431x, 0.007y, -6.302z
-09-06 23:09:34 root  DEBUG Acquiring LiDAR scan ...
-09-06 23:09:35 root  INFO  Captured 8585 points in LiDAR scene
-09-06 23:09:35 root  DEBUG Clustering LiDAR scan ...
-09-06 23:09:37 root  INFO  Heading to feature 3 at: 7.446x, 0.000y, -0.326z
-09-06 23:09:37 root  INFO  Along bearing: 308.324148
+09-09 23:24:39 GNSS  DEBUG Starting log for Pioneer3at
+09-09 23:24:39 root  INFO  Pioneer is scanning surrounding area for features
+09-09 23:24:39 root  DEBUG Acquiring LiDAR scan ...
+09-09 23:24:47 root  INFO  Captured 10418 points in LiDAR scene
+09-09 23:24:47 root  DEBUG Clustering LiDAR scan ...
+09-09 23:24:48 pulp.apis.core DEBUG C:\Users\joshc\AppData\Local\Programs\Python\Python37\lib\site-packages\pulp\apis\..\solverdir\cbc\win\64\cbc.exe C:\Users\joshc\AppData\Local\Temp\f936b8d40706453db2d234ec04c01b85-pulp.mps ratio None allow None threads None presolve on strong None gomory on knapsack on probing on branch printingOptions all solution C:\Users\joshc\AppData\Local\Temp\f936b8d40706453db2d234ec04c01b85-pulp.sol 
+09-09 23:24:48 root  INFO  5 features found -- Beginning survey
+09-09 23:24:48 root  INFO  Heading to feature 0 at: -1.932x 0.000y 3.165z
+09-09 23:24:48 root  INFO  Along bearing: 31.383473
+09-09 23:25:02 root  INFO  Starting to map feature 0 at: -2.986x 0.007y 1.470z
+09-09 23:25:10 root  INFO  Captured 15924 points in LiDAR scene
+09-09 23:25:48 root  INFO  Captured 12140 points in LiDAR scene
