@@ -126,6 +126,10 @@ def capture_lidar_scene(robot, timestep, lidar_device, location, bearing,
                 point_list.append((row.x, row.y, row.z))
 
     logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
+
+    return convert_to_o3d(point_list)    
+
+def convert_to_o3d(point_list):
     
     # Convert points to open 3D point cloud    
     xyz = np.array(point_list)
@@ -141,7 +145,7 @@ def write_lidar_scene(pcd, method='w',
     with open(path, method, newline='') as outfile:
         np.savetxt(outfile, pcd.points, delimiter=",")
 
-def cluster_points(array, write='y'):
+def cluster_points(array):
 
     clusters = []
     features = []
@@ -170,11 +174,11 @@ def cluster_points(array, write='y'):
                 features.append(clusters[cluster])
 
                 # Print clusters to individual files
-                if write=='y':
-                    path=os.path.join(const.OUTPUT_PATH,  'cluster'+str(cluster)+'.xyz')
-                    with open(path, 'w', newline='') as outfile:
-                        csvwriter = csv.writer(outfile)
-                        for row in clusters[cluster]:
-                            csvwriter.writerow(row)
+                # if write=='y':
+                #     path=os.path.join(const.OUTPUT_PATH,  'cluster'+str(cluster)+'.xyz')
+                #     with open(path, 'w', newline='') as outfile:
+                #         csvwriter = csv.writer(outfile)
+                #         for row in clusters[cluster]:
+                #             csvwriter.writerow(row)
 
     return features

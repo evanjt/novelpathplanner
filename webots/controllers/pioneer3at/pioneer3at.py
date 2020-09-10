@@ -10,6 +10,7 @@
 
 from controller import Robot
 import logging
+import os
 import numpy as np
 import open3d as o3d
 
@@ -45,6 +46,9 @@ clusters, targets = clust.get_targets(pioneer3at.robot,
                             pioneer3at.lidar,
                             const.HOME_LOCATION,
                             np.array(first_scan.points))
+for ind, val in enumerate(clusters):
+    clust.write_lidar_scene(clust.convert_to_o3d(val), method='w', 
+    path=os.path.join(const.OUTPUT_PATH, 'cluster'+str(ind)+'.xyz'))
 log.write_featurepoints(targets, pioneer3at.gps, pioneer3at.imu)
 logging.info("{} features found -- Beginning survey".format(len(targets)-1))
 
@@ -65,7 +69,8 @@ while pioneer3at.robot.step(pioneer3at.timestep) != -1:
         currentPos, currentBearing = nav.nav_to_point(i, target,
                                                       pioneer3at, flag,
                                                       startingPos,
-                                                      targetBearing)
+                                                      targetBearing,
+                                                      first_scan)
         if i==len(targets)-1:
             break
         else:
@@ -73,16 +78,16 @@ while pioneer3at.robot.step(pioneer3at.timestep) != -1:
                         "{:.3f}x {:.3f}y {:.3f}z".format(i, *currentPos))
             nav.prepare_to_map(pioneer3at, target[1])
             
-            # Convert points to open 3D point cloud    
-            xyz = np.array(clusters[i])
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(xyz)
+            # Convert points to open 3D point cloud  
+            clust.convert_to_o3d(clusters[i])  
             
             # NTS: flag when areas of the feature have not been mapped
             if const.DEVICE == 'lidar':
-                nav.lidar_mapping(pioneer3at, targets[i][2], i, pcd)
+                nav.lidar_mapping(pioneer3at, targets[i][2], i, 
+                    clust.convert_to_o3d(clusters[i]))
             elif const.DEVICE == 'camera':
-                nav.camera_mapping(pioneer3at, targets[i], i, pcd)
+                nav.camera_mapping(pioneer3at, targets[i], i, 
+                    clust.convert_to_o3d(clusters[i]))
 
     # After list is done, shutdown
     logging.info("Survey complete")

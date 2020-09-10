@@ -16,8 +16,12 @@ import research.constants as const
 import research.clustering as clust
 import research.slam as slam
 
-def nav_to_point(i, target, pioneer3at, flag, startingPos, targetBearing):
+def nav_to_point(i, target, pioneer3at, flag, startingPos, targetBearing, first_scan):
 
+    # Set the last_scan variable to first lidar scan
+    last_scan = first_scan
+    counter = 0
+            
     # Navigate robot to the feature
     while pioneer3at.robot.step(pioneer3at.timestep) != -1:
 
@@ -34,7 +38,26 @@ def nav_to_point(i, target, pioneer3at, flag, startingPos, targetBearing):
                                    pioneer3at.hkfBraitenbergCoefficients)
 
         # Once within range map the feature, stop once returned home
-        if targetDistance > const.MAPPING_DISTANCE and obstacle[2] > const.OBSTACLE_THRESHOLD:
+        if target_distance(startingPos, currentPos) > \
+            const.MOVEMENT_THRESHOLD:
+            targetBearing = target_bearing(currentPos, target[0])
+            startingPos = currentPos
+
+            # Intermittently capture a new scan based on the movement threshold
+            # Rotate that scan based on the previous scan, and write to file
+            # logging.debug("Acquiring LiDAR scan ...")
+            # scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
+            #                                         pioneer3at.lidar, currentPos, 
+            #                                         currentBearing)
+            # transformed_scan = slam.rotate_scan(last_scan, scan)
+            # lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
+            #                                     'scan'+str(counter)+'.xyz')
+            # clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
+            # last_scan = transformed_scan
+            # counter+=1
+
+        elif targetDistance > const.MAPPING_DISTANCE and obstacle[2] > \
+            const.OBSTACLE_THRESHOLD:
             speed_factor = (1.0 - (const.DECREASE_FACTOR * obstacle[2])) * \
                                             (const.MAX_SPEED / obstacle[2])
             set_velocity(pioneer3at.wheels, speed_factor * obstacle[0],
@@ -64,7 +87,6 @@ def nav_to_point(i, target, pioneer3at, flag, startingPos, targetBearing):
 
         else:
             return currentPos, currentBearing
-
 
 def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold,
                     maxRange, braitenbergCoefficients):
@@ -217,7 +239,7 @@ def camera_mapping(pioneer3at, targets, i, first_scan):
 
     # Detect features/clusters within lidar scene
     logging.debug("Clustering LiDAR scan ...")
-    features = clust.cluster_points(np.array(transformed_scan.points), write='n')
+    features = clust.cluster_points(np.array(transformed_scan.points))
 
     if len(features) > 1:
         print("Warning one feature expected but multiple detected")
