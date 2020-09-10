@@ -20,7 +20,7 @@ import research.navigation as nav
 from sklearn.metrics.pairwise import euclidean_distances
 import open3d as o3d
 
-def get_targets(robot, timestep, lidar, location):
+def get_targets(robot, timestep, lidar, location, point_array):
 
     # Before beginning survey scan surrounds, cluster the scene,
     # return clusters for feature mapping
@@ -30,10 +30,7 @@ def get_targets(robot, timestep, lidar, location):
     bearingList = []
     featureList = []
     targets = []
-
-    # Capture lidar scene and identify features
-    logging.debug("Acquiring LiDAR scan ...")
-    point_array = capture_lidar_scene(robot, lidar, timestep, location, 0)
+    clusters = []
 
     # Detect features/clusters within lidar scene
     logging.debug("Clustering LiDAR scan ...")
@@ -54,6 +51,7 @@ def get_targets(robot, timestep, lidar, location):
         mappingDist = (ymax+const.SCANNER_HEIGHT)/ \
             math.tan(math.radians(const.VERTICAL_VOF))
 
+        #NTS: change mapping to the most visible face from the first scan is visited first
         if (xmax - xmin) > (zmax - zmin) and zmax > const.HOME_LOCATION[2]:
             bearingList.append(90)
             featureList.append([xmin+(xmax-xmin)/2, zmin-mappingDist])
@@ -87,114 +85,63 @@ def get_targets(robot, timestep, lidar, location):
     bearingList.insert(0,0)
     mappingDists.insert(0,0)
     targets.append([const.HOME_LOCATION, 0])
+    features.insert(0,0)
+
     for ind, val in enumerate(t[1]):
         featureList[val].insert(1,0)
+        clusters.insert(ind,features[val])
         targets.insert(ind, [featureList[val], bearingList[val], \
             mappingDists[val], bboxList[val]])
 
     # Save feature locations to file
-    with open(os.path.join(const.OUTPUT_PATH,'features.csv'),
+    with open(os.path.join(const.OUTPUT_PATH,'features.xyz'),
               'w', newline='') as outfile:
         csvwriter = csv.writer(outfile)
         for i in targets[1:]:
             csvwriter.writerow(i[0])
 
-    return targets[1:]
+    return clusters[1:], targets[1:]
 
-def capture_lidar_scene(robot, lidar_device, timestep, location, bearing,
-                        path=os.path.join(const.OUTPUT_PATH, 'points.xyz'),
+def capture_lidar_scene(robot, timestep, lidar_device, location, bearing,
                         method='w', scan='full', threshold=20):
 
     point_list = []
 
-    # Capture lidar points in a csv
-    # with open(path, method, newline='') as outfile:
-    #     csvwriter = csv.writer(outfile)
-        
-    # Due to lidar intricacies every fifth step yields a full scan
-    # NTS: Will this ensure the correct point cloud is returned every time? 
-    # for i in range(10):
-    #     path2=os.path.join(const.OUTPUT_PATH,  str(i)+'.xyz')
-    #     with open(path2, 'w', newline='') as outfile:
-    #         csvwriter = csv.writer(outfile)
-    #         robot.step(timestep)
-    #         cloud = lidar_device.getPointCloud()
-    #         for row in cloud:
-    #             distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
-    #             if row.y > -0.5 and row.y < 5 and distance < threshold + 5:
-    #                 csvwriter.writerow([row.x, row.y, row.z])
+    # Capture lidar data
+    robot.step(timestep)
+    cloud = lidar_device.getPointCloud()
 
-    # robot.step(timestep)
-    # robot.step(timestep)
+    # Filter the lidar point cloud
+    for row in cloud:
 
-    # path3=os.path.join(const.OUTPUT_PATH, 'test.xyz')
-    # with open(path3, 'w', newline='') as outfile:
-    #     csvwriter = csv.writer(outfile)
-    #     robot.step(timestep)
-    #     cloud = lidar_device.getPointCloud()
-    #     for row in cloud:
-    #         distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
-    #         if row.y > -0.5 and row.y < 5 and distance < threshold + 5:
-    #             csvwriter.writerow([row.x, row.y, row.z])
+        distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
 
-    # Due to lidar intricacies every fifth step yields a full scan
-    # NTS: Will this ensure the correct point cloud is returned every time?
-    # Was working before without this, why?
-    for i in range(5):
-        robot.step(timestep)
-        cloud = lidar_device.getPointCloud()
-
-    with open(path, method, newline='') as outfile:
-        csvwriter = csv.writer(outfile)
-    
-        robot.step(timestep)
-        print(lidar_device.getSamplingPeriod())
-        cloud = lidar_device.getPointCloud()
-
-        # Filter the lidar point cloud
-        for row in cloud:
-
-            distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
-
-            if scan == 'feature':
-                if row.y > -0.5 and row.y < 5 \
-                    and row.x < 0 and row.z < 5 and row.z > -5 \
-                    and distance < threshold + 5:
-                    point_list.append((row.x, row.y, row.z))
-            else:
-                if row.y > -0.5 and row.y < 5 and distance < threshold + 5:
-                    csvwriter.writerow([row.x, row.y, row.z])
-                    point_list.append((row.x, row.y, row.z))
-
-        #print(nav.difference(location, const.HOME_LOCATION))
-        #print(bearing)
-
-        # Read scan data into point cloud type, translate and rotate it
         if scan == 'feature':
-            xyz = np.array(point_list)
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(xyz)
-            pcd.translate(nav.difference([location[0],0,location[2]], const.HOME_LOCATION))
-            R = pcd.get_rotation_matrix_from_axis_angle(np.array([0,(bearing * -1 + 360) % 360,0]))
-            #R = pcd.get_rotation_matrix_from_axis_angle(np.array([0,(180-bearing+360)%360,0]))
-            shape = np.shape(np.array(R))
-            padded_array = np.zeros((4, 4))
-            padded_array[:shape[0],:shape[1]] = np.array(R)
-            padded_array[3][3]=1
-            print(padded_array)
-            # change rotation value to a multiple of 90 degrees as scans will only be taken along bbox axis, this can be automatically incremented
-            # pcd.rotate(R, [location[0],0,location[2]])
-            pcd.transform(padded_array)
-            np.savetxt(outfile, pcd.points, delimiter=",")
-            logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
-    
-            return np.array(pcd.points)
+            if row.y > -0.5 and row.y < 5 \
+                and row.x < 0 and row.z < 5 and row.z > -5 \
+                and distance < threshold + 5:
+                point_list.append((row.x, row.y, row.z))
+        else:
+            if row.y > -0.5 and row.y < 5 and distance < threshold + 5:
+                point_list.append((row.x, row.y, row.z))
 
     logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
+    
+    # Convert points to open 3D point cloud    
+    xyz = np.array(point_list)
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(xyz)
 
-    return np.array(point_list)
+    return pcd
 
-def cluster_points(array):
+def write_lidar_scene(pcd, method='w', 
+                    path=os.path.join(const.OUTPUT_PATH, 'points.xyz')):
+
+    # Write pointcloud to file
+    with open(path, method, newline='') as outfile:
+        np.savetxt(outfile, pcd.points, delimiter=",")
+
+def cluster_points(array, write='y'):
 
     clusters = []
     features = []
@@ -223,10 +170,11 @@ def cluster_points(array):
                 features.append(clusters[cluster])
 
                 # Print clusters to individual files
-                # path=os.path.join(const.OUTPUT_PATH,  str(cluster)+'.xyz')
-                # with open(path, 'w', newline='') as outfile:
-                #     csvwriter = csv.writer(outfile)
-                #     for row in clusters[cluster]:
-                #         csvwriter.writerow(row)
+                if write=='y':
+                    path=os.path.join(const.OUTPUT_PATH,  'cluster'+str(cluster)+'.xyz')
+                    with open(path, 'w', newline='') as outfile:
+                        csvwriter = csv.writer(outfile)
+                        for row in clusters[cluster]:
+                            csvwriter.writerow(row)
 
     return features
