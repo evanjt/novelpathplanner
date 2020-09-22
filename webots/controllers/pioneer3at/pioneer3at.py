@@ -40,6 +40,7 @@ first_scan = clust.capture_lidar_scene(pioneer3at.robot,
                             pioneer3at.timestep,
                             pioneer3at.lidar,
                             const.HOME_LOCATION, 0)
+#first_scan = clust.filter_points(first_scan)
 clust.write_lidar_scene(first_scan)
 clusters, targets = clust.get_targets(pioneer3at.robot,
                             pioneer3at.timestep,
@@ -47,15 +48,16 @@ clusters, targets = clust.get_targets(pioneer3at.robot,
                             const.HOME_LOCATION,
                             np.array(first_scan.points))
 for ind, val in enumerate(clusters):
-    clust.write_lidar_scene(clust.convert_to_o3d(val), method='w', 
-    path=os.path.join(const.OUTPUT_PATH, 'cluster'+str(ind)+'.xyz'))
+    clust.write_lidar_scene(clust.convert_to_o3d(val), method='w',
+                            path=os.path.join(const.OUTPUT_PATH,
+                                              'cluster'+str(ind)+'.xyz'))
 log.write_featurepoints(targets, pioneer3at.gps, pioneer3at.imu)
 logging.info("{} features found -- Beginning survey".format(len(targets)-1))
 
 # Loop through the detected target features
 while pioneer3at.robot.step(pioneer3at.timestep) != -1:
     for i, target in enumerate(targets):
-        
+
         # Calculate initial bearing to target feature
         pioneer3at.robot.step(pioneer3at.timestep)
         startingPos = nav.robot_position(pioneer3at.gps)
@@ -77,16 +79,16 @@ while pioneer3at.robot.step(pioneer3at.timestep) != -1:
             logging.info("Starting to map feature {} at: "
                         "{:.3f}x {:.3f}y {:.3f}z".format(i, *currentPos))
             nav.prepare_to_map(pioneer3at, target[1])
-            
-            # Convert points to open 3D point cloud  
-            clust.convert_to_o3d(clusters[i])  
-            
+
+            # Convert points to open 3D point cloud
+            clust.convert_to_o3d(clusters[i])
+
             # NTS: flag when areas of the feature have not been mapped
             if const.DEVICE == 'lidar':
-                nav.lidar_mapping(pioneer3at, targets[i][2], i, 
+                nav.lidar_mapping(pioneer3at, targets[i][2], i,
                     clust.convert_to_o3d(clusters[i]))
             elif const.DEVICE == 'camera':
-                nav.camera_mapping(pioneer3at, targets[i], i, 
+                nav.camera_mapping(pioneer3at, targets[i], i,
                     clust.convert_to_o3d(clusters[i]))
 
     # After list is done, shutdown

@@ -19,14 +19,16 @@ import research.constants as const
 import research.navigation as nav
 from sklearn.metrics.pairwise import euclidean_distances
 import open3d as o3d
+from sklearn.neighbors import NearestNeighbors
+
 
 def get_targets(robot, timestep, lidar, location, point_array):
 
     # Before beginning survey scan surrounds, cluster the scene,
     # return clusters for feature mapping
-    
+
     bboxList = []
-    mappingDists = [] 
+    mappingDists = []
     bearingList = []
     featureList = []
     targets = []
@@ -35,7 +37,7 @@ def get_targets(robot, timestep, lidar, location, point_array):
     # Detect features/clusters within lidar scene
     logging.debug("Clustering LiDAR scan ...")
     features = cluster_points(point_array)
-    
+
     # Obtain the bbox of each cluster
     # Due to differences between the world and the point cloud x=z and z=x
     for feature in features:
@@ -127,18 +129,19 @@ def capture_lidar_scene(robot, timestep, lidar_device, location, bearing,
 
     logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
 
-    return convert_to_o3d(point_list)    
+    return convert_to_o3d(point_list)
 
 def convert_to_o3d(point_list):
-    
-    # Convert points to open 3D point cloud    
-    xyz = np.array(point_list)
+
+    # Convert points to open 3D point cloud
+    xyz = filter_points(np.array(point_list))
+
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(xyz)
 
     return pcd
 
-def write_lidar_scene(pcd, method='w', 
+def write_lidar_scene(pcd, method='w',
                     path=os.path.join(const.OUTPUT_PATH, 'points.xyz')):
 
     # Write pointcloud to file
@@ -182,3 +185,17 @@ def cluster_points(array):
                 #             csvwriter.writerow(row)
 
     return features
+
+def filter_points(df, k=5, threshold=0.5):
+
+    # Nearest neighbours outlier setup
+    knn = NearestNeighbors(n_neighbors=k)
+    knn.fit(df)
+    neighbors_and_distances = knn.kneighbors(df)
+    knn_distances = neighbors_and_distances[0]
+    neighbors = neighbors_and_distances[1]
+    kth_distance = [x[-1] for x in knn_distances]
+    tnn_distance = np.mean(knn_distances, axis=1)
+
+
+    return df[abs(tnn_distance - np.mean(tnn_distance)) < threshold * np.std(tnn_distance)]

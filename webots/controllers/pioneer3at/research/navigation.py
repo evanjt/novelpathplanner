@@ -21,7 +21,7 @@ def nav_to_point(i, target, pioneer3at, flag, startingPos, targetBearing, first_
     # Set the last_scan variable to first lidar scan
     last_scan = first_scan
     counter = 0
-            
+
     # Navigate robot to the feature
     while pioneer3at.robot.step(pioneer3at.timestep) != -1:
 
@@ -47,7 +47,7 @@ def nav_to_point(i, target, pioneer3at, flag, startingPos, targetBearing, first_
             # Rotate that scan based on the previous scan, and write to file
             # logging.debug("Acquiring LiDAR scan ...")
             # scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
-            #                                         pioneer3at.lidar, currentPos, 
+            #                                         pioneer3at.lidar, currentPos,
             #                                         currentBearing)
             # transformed_scan = slam.rotate_scan(last_scan, scan)
             # lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
@@ -157,7 +157,7 @@ def lidar_mapping(pioneer3at, threshold, i, first_scan):
 
     # Set the last_scan variable to first lidar scan
     last_scan = first_scan
-    
+
     # Capture a new scan, rotate based on first scan, and write to file
     scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
                                     pioneer3at.lidar, currentPos, currentBearing,
@@ -166,7 +166,7 @@ def lidar_mapping(pioneer3at, threshold, i, first_scan):
     lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
                                         'lidar_feature' + str(i) + '.xyz')
     clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
-    
+
     # Loop for feature mapping
     while pioneer3at.robot.step(pioneer3at.timestep) != -1:
 
@@ -182,13 +182,13 @@ def lidar_mapping(pioneer3at, threshold, i, first_scan):
         # to its starting point
         if target_distance(lastScanPos, currentPos) > \
             const.SCAN_THRESHOLD:
-            last_scan = transformed_scan
-            scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep, 
-            pioneer3at.lidar, currentPos, currentBearing, 
-            method='a', scan='feature', threshold=threshold)
-            slam.rotate_scan(last_scan, transformed_scan)
-            clust.write_lidar_scene(transformed_scan, method='a',
-            path=lidar_feature_csvpath)
+            last_scan = transformed_scan # ??
+            scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
+                                             pioneer3at.lidar, currentPos, currentBearing,
+                                             method='a', scan='feature', threshold=threshold) # Should this variable be called something else?
+            slam.rotate_scan(last_scan, transformed_scan) # Rotating it to itself? 4 lines up this becomes the same variable, should this become transformed_scan?
+            clust.write_lidar_scene(transformed_scan, method='a', # Writing transformed_scan, but last_scan is transformed_scan
+                                    path=lidar_feature_csvpath)
             lastScanPos = currentPos
 
         elif hasMoved and distanceToStart < const.LOOP_THRESHOLD:
@@ -217,7 +217,7 @@ def camera_mapping(pioneer3at, targets, i, first_scan):
     # extract target information into variables
     bbox = targets[3]
     threshold = targets[2]
-    scanBearing = targets[1] 
+    scanBearing = targets[1]
 
     # Calculate starting position
     pioneer3at.robot.step(pioneer3at.timestep)
@@ -226,11 +226,11 @@ def camera_mapping(pioneer3at, targets, i, first_scan):
 
     # Set the last_scan variable to first lidar scan
     last_scan = first_scan
-    
+
     # Capture a new scan, rotate based on first scan, and write to file
     logging.debug("Acquiring LiDAR scan ...")
     scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
-                                            pioneer3at.lidar, currentPos, 
+                                            pioneer3at.lidar, currentPos,
                                             currentBearing, scan='feature', threshold=threshold)
     transformed_scan = slam.rotate_scan(last_scan, scan)
     lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
@@ -270,7 +270,7 @@ def camera_mapping(pioneer3at, targets, i, first_scan):
         print("mapping dist changed")
 
     # NTS: sections of the robot which are being scanned are affecting bbox changes
-    
+
     # NTS: once bbox is updated need to calc if there needs to be a change to mapping locations based on bbox dimensions and mappingdist
 
     # NTS: need to first calculate rough mapping locations based on initial scan
