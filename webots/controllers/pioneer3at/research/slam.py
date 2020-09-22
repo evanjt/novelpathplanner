@@ -31,13 +31,13 @@ def preprocess_point_cloud(pcd, voxel_size):
     pcd_down = pcd.voxel_down_sample(voxel_size)
 
     #radius_normal = voxel_size * 5
-    radius_normal = 10
+    radius_normal = 1
     print(":: Estimate normal with search radius %.3f." % radius_normal)
     pcd_down.estimate_normals(
         o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
 
     #radius_feature = voxel_size * 10
-    radius_feature = 50
+    radius_feature = 2.5
     print(":: Compute FPFH feature with search radius %.3f." % radius_feature)
     pcd_fpfh = o3d.registration.compute_fpfh_feature(
         pcd_down,
@@ -48,7 +48,7 @@ def preprocess_point_cloud(pcd, voxel_size):
 def execute_fast_global_registration(source_down, target_down, source_fpfh,
                                      target_fpfh, voxel_size):
 
-    distance_threshold = 5
+    distance_threshold = 0.5
     print(":: Apply fast global registration with distance threshold %.3f" \
             % distance_threshold)
     result = o3d.registration.registration_fast_based_on_feature_matching(

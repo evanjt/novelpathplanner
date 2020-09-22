@@ -186,7 +186,7 @@ def cluster_points(array):
 
     return features
 
-def filter_points(df, k=5, threshold=0.5):
+def filter_points(df, k=5, threshold=1):
 
     # Nearest neighbours outlier setup
     knn = NearestNeighbors(n_neighbors=k)

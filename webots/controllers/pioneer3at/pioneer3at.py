@@ -40,7 +40,6 @@ first_scan = clust.capture_lidar_scene(pioneer3at.robot,
                             pioneer3at.timestep,
                             pioneer3at.lidar,
                             const.HOME_LOCATION, 0)
-#first_scan = clust.filter_points(first_scan)
 clust.write_lidar_scene(first_scan)
 clusters, targets = clust.get_targets(pioneer3at.robot,
                             pioneer3at.timestep,
@@ -68,7 +67,11 @@ while pioneer3at.robot.step(pioneer3at.timestep) != -1:
         flag = False
 
         # Start navigation to a point
-        currentPos, currentBearing = nav.nav_to_point(i, target,
+        # NTS: This uses the first scan each time, whereas it should use the last taken scan
+        # which would have been captured in either lidar_mapping or camera_maping
+        # an alternative method would be to return home after each feature is mapped to close the loop
+        # or come up with another loop closure method
+        currentPos, currentBearing, lastScan = nav.nav_to_point(i, target,
                                                       pioneer3at, flag,
                                                       startingPos,
                                                       targetBearing,
@@ -80,16 +83,15 @@ while pioneer3at.robot.step(pioneer3at.timestep) != -1:
                         "{:.3f}x {:.3f}y {:.3f}z".format(i, *currentPos))
             nav.prepare_to_map(pioneer3at, target[1])
 
-            # Convert points to open 3D point cloud
-            clust.convert_to_o3d(clusters[i])
-
             # NTS: flag when areas of the feature have not been mapped
             if const.DEVICE == 'lidar':
                 nav.lidar_mapping(pioneer3at, targets[i][2], i,
-                    clust.convert_to_o3d(clusters[i]))
+                    lastScan)
+                    #clust.convert_to_o3d(clusters[i]))
             elif const.DEVICE == 'camera':
                 nav.camera_mapping(pioneer3at, targets[i], i,
-                    clust.convert_to_o3d(clusters[i]))
+                    lastScan)
+                    #clust.convert_to_o3d(clusters[i]))
 
     # After list is done, shutdown
     logging.info("Survey complete")
