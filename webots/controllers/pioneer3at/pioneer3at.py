@@ -72,10 +72,9 @@ while pioneer3at.robot.step(pioneer3at.timestep) != -1:
         # which would have been captured in either lidar_mapping or camera_maping
         # an alternative method would be to return home after each feature is mapped to close the loop
         # or come up with another loop closure method
-        currentPos, currentBearing, lastScan = nav.nav_to_point(i, target,
+        currentPos, currentBearing, lastScan = nav.nav_to_point(i, target[0],
                                                       pioneer3at, flag,
                                                       startingPos,
-                                                      targetBearing,
                                                       first_scan)
         if i==len(targets)-1:
             break

@@ -24,10 +24,10 @@ LOOP_THRESHOLD = 2
 OBSTACLE_THRESHOLD = 0.1
 OBSTACLE_BUFFER = 0.05
 DECREASE_FACTOR = 0.9
-DEVICE = 'lidar'
+DEVICE = 'camera'
 COORDINATE_FILENAME = 'coordinates.json'
 FEATURE_FILENAME = 'featurepoints.json'
-MAPPING_DISTANCE = 0.5
+MAPPING_DISTANCE = 1
 
 OUTPUT_PATH = os.path.abspath(os.path.join(os.getcwd(),
                                            os.pardir,

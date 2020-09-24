@@ -11,16 +11,20 @@
 import math
 import os
 import logging
+import csv
 import numpy as np
 import research.constants as const
 import research.clustering as clust
 import research.slam as slam
 
-def nav_to_point(i, target, pioneer3at, flag, startingPos, targetBearing, first_scan):
+def nav_to_point(i, target, pioneer3at, flag, startingPos, first_scan):
 
     # Set the last_scan variable to first lidar scan
     last_scan = first_scan
     counter = 0
+    
+    # calc bearing to target
+    targetBearing = target_bearing(startingPos, target)
 
     # Navigate robot to the feature
     while pioneer3at.robot.step(pioneer3at.timestep) != -1:
@@ -29,7 +33,7 @@ def nav_to_point(i, target, pioneer3at, flag, startingPos, targetBearing, first_
         # bearing and distance to target feature
         currentPos = robot_position(pioneer3at.gps)
         currentBearing = robot_bearing(pioneer3at.imu)
-        targetDistance = target_distance(currentPos, target[0])
+        targetDistance = target_distance(currentPos, target)
 
         # Continually detect obstacles
         obstacle = detect_obstacle(pioneer3at.robot, pioneer3at.hokuyoFront,
@@ -42,7 +46,7 @@ def nav_to_point(i, target, pioneer3at, flag, startingPos, targetBearing, first_
             const.MOVEMENT_THRESHOLD:
 
             # Set new startinPos and reset targetBearing
-            targetBearing = target_bearing(currentPos, target[0])
+            targetBearing = target_bearing(currentPos, target)
             startingPos = currentPos
 
             # The below code can be commented out to avoid additional scans at a set interval###
@@ -76,7 +80,7 @@ def nav_to_point(i, target, pioneer3at, flag, startingPos, targetBearing, first_
             flag = False
 
         elif flag == False:
-            targetBearing = target_bearing(currentPos, target[0])
+            targetBearing = target_bearing(currentPos, target)
             flag = True
 
         elif targetDistance > const.MAPPING_DISTANCE \
@@ -174,15 +178,19 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
                                         'pre_transform' + str(i) + 'scan' + str(counter) + '.xyz')
     clust.write_lidar_scene(scan, path=lidar_feature_csvpath)
     # transformed_scan = slam.rotate_scan(first_scan, scan)
+    # R = scan.get_rotation_matrix_from_xyz((0,np.deg2rad((currentBearing + 180) % 360), 0))
+    # transformed_scan = scan.rotate(R, center=currentPos)
     print(currentPos)
     print(currentBearing)
+    
     T = np.eye(4)
-    T[:3,:3] = scan.get_rotation_matrix_from_xyz((0,np.deg2rad((currentBearing + 360) % 360), 0))
+    T[:3,:3] = scan.get_rotation_matrix_from_xyz((0,np.deg2rad((currentBearing + 180) % 360), 0))
     T[0,3] = currentPos[0]
     T[1,3] = currentPos[1]
     T[2,3] = currentPos[2]
     print(T)
     transformed_scan = scan.transform(T)
+    
     # T = np.eye(4)
     # T[:3,:3] = scan.get_rotation_matrix_from_xyz((0,np.deg2rad((target[1] + 180) % 360), 0))
     # T[0,3] = target[0][0]
@@ -251,83 +259,169 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
             hasMoved = True
 
         else:
-            if values[side] < threshold \
-                or values[frontSide] < frontSideThreshold \
-                or values[front] < frontThreshold:
-                set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED*0.6)
+            # if values[side] < threshold \
+            #     or values[frontSide] < frontSideThreshold \
+            #     or values[front] < frontThreshold:
+            #     set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED*0.6)
 
-            elif values[side] > thresholdBuffer \
-                or values[frontSide] > frontSideThresholdBuffer \
-                or values[front] > frontThreshold:
-                set_velocity(pioneer3at.wheels, const.MAX_SPEED*0.6, const.MAX_SPEED)
+            # elif values[side] > thresholdBuffer \
+            #     or values[frontSide] > frontSideThresholdBuffer \
+            #     or values[front] > frontThreshold:
+            #     set_velocity(pioneer3at.wheels, const.MAX_SPEED*0.6, const.MAX_SPEED)
 
-            else:
-                set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
+            # else:
+            #     set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
+        
+            set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
 
 def camera_mapping(pioneer3at, targets, i, first_scan):
-
-    # extract target information into variables
-    bbox = targets[3]
-    threshold = targets[2]
-    scanBearing = targets[1]
 
     # Calculate starting position
     pioneer3at.robot.step(pioneer3at.timestep)
     currentPos = robot_position(pioneer3at.gps)
     currentBearing = robot_bearing(pioneer3at.imu)
+    
+    # extract target information into variables
+    bbox = targets[3]
+    threshold = targets[2]
+    scanBearing = targets[1]
 
-    # Set the last_scan variable to first lidar scan
-    last_scan = first_scan
+    # for later use in adding additional points along a plane
+    xlength = math.floor(abs((bbox[1]-bbox[0])/2))
+    zlength = math.floor(abs((bbox[3]-bbox[2])/2))
 
-    # Capture a new scan, rotate based on first scan, and write to file
-    logging.debug("Acquiring LiDAR scan ...")
-    scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
-                                            pioneer3at.lidar, currentPos,
-                                            currentBearing)
-                                            # , scan='feature', threshold=threshold)
-    transformed_scan = slam.rotate_scan(last_scan, scan)
-    lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
-                                        'lidar_feature' + str(i) + '.xyz')
-    clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
+    # calculate the mapping positions
+    mappingPositions = []
+    if scanBearing == 0:
+        print("0")
+        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold])
+        mappingPositions.append([bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
+        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold])
+        mappingPositions.append([bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
+    elif scanBearing == 90:
+        print("90")
+        mappingPositions.append([bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
+        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold])
+        mappingPositions.append([bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
+        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold])
+    elif scanBearing == 180:
+        print("180")
+        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold])
+        mappingPositions.append([bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
+        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold])
+        mappingPositions.append([bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
+    elif scanBearing == 270:
+        print("270")
+        mappingPositions.append([bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
+        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold])
+        mappingPositions.append([bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
+        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold])
+    else:
+        print("bearing error")
 
-    # Detect features/clusters within lidar scene
-    logging.debug("Clustering LiDAR scan ...")
-    features = clust.cluster_points(np.array(transformed_scan.points))
+    print(mappingPositions)
 
-    if len(features) > 1:
-        print("Warning one feature expected but multiple detected")
+    # Save feature locations to file
+    with open(os.path.join(const.OUTPUT_PATH,'mapping_points.xyz'),
+              'w', newline='') as outfile:
+        csvwriter = csv.writer(outfile)
+        for i in mappingPositions:
+            csvwriter.writerow(i)
+    
+    for k, v in enumerate(mappingPositions):
+        
+        # Calculate starting position
+        pioneer3at.robot.step(pioneer3at.timestep)
+        currentPos = robot_position(pioneer3at.gps)
+        currentBearing = robot_bearing(pioneer3at.imu)
 
-    # NTS: need to properly rotate the cloud for accurate bbox update
-    # NTS: could potentially be other problems with the bbox update
-    for feature in features:
-        xmax = max(feature, key=lambda x: x[0])[0]
-        xmin = min(feature, key=lambda x: x[0])[0]
-        ymax = max(feature, key=lambda x: x[1])[1]
-        zmax = max(feature, key=lambda x: x[2])[2]
-        zmin = min(feature, key=lambda x: x[2])[2]
+        # Capture a new scan, rotate based on first scan, and write to file
+        logging.debug("Acquiring LiDAR scan ...")
+        scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
+                                                pioneer3at.lidar, currentPos,
+                                                currentBearing,
+                                                scan='feature', threshold=threshold)
+        #transformed_scan = slam.rotate_scan(last_scan, scan)
+        T = np.eye(4)
+        if scanBearing == 0:
+            axisRotation = np.deg2rad(currentBearing + 180) % 360 
+        elif scanBearing == 90:
+            axisRotation = np.deg2rad(currentBearing) 
+        elif scanBearing == 180:
+            axisRotation = np.deg2rad(currentBearing + 180) % 360 
+        elif scanBearing == 270:
+            axisRotation = np.deg2rad(currentBearing) 
+        else:
+            print("Bearing error!")
+        T[:3,:3] = scan.get_rotation_matrix_from_xyz((0,axisRotation, 0))
+        T[0,3] = currentPos[0]
+        T[1,3] = currentPos[1]
+        T[2,3] = currentPos[2]
+        print(T)
+        transformed_scan = scan.transform(T)
+        lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
+                                            'lidar_feature'+ str(i) + 'scan' + str(k) + '.xyz')
+        clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
+    
+        # Detect features/clusters within lidar scene
+        logging.debug("Clustering LiDAR scan ...")
+        features = clust.cluster_points(np.array(transformed_scan.points))
 
-    if xmin < bbox[0]:
-        bbox[0] = xmin
-        print("xmin changed")
-    if xmax > bbox[1]:
-        bbox[1] = xmax
-        print("xmax changed")
-    if zmin < bbox[2]:
-        bbox[2] = zmin
-        print("zmin changed")
-    if zmax > bbox[3]:
-        bbox[3] = zmax
-        print("zmax changed")
-    if ymax > threshold:
-        threshold = ymax
-        print("mapping dist changed")
+        if len(features) > 1:
+            print("Warning one feature expected but multiple detected")
 
-    # NTS: sections of the robot which are being scanned are affecting bbox changes
+        # NTS: need to properly rotate the cloud for accurate bbox update
+        # NTS: could potentially be other problems with the bbox update
+        for feature in features:
+            xmax = max(feature, key=lambda x: x[0])[0]
+            xmin = min(feature, key=lambda x: x[0])[0]
+            ymax = max(feature, key=lambda x: x[1])[1]
+            zmax = max(feature, key=lambda x: x[2])[2]
+            zmin = min(feature, key=lambda x: x[2])[2]
+
+        if xmin < bbox[0]:
+            bbox[0] = xmin
+            print("xmin changed")
+        if xmax > bbox[1]:
+            bbox[1] = xmax
+            print("xmax changed")
+        if zmin < bbox[2]:
+            bbox[2] = zmin
+            print("zmin changed")
+        if zmax > bbox[3]:
+            bbox[3] = zmax
+            print("zmax changed")
+        if ymax > threshold:
+            threshold = ymax
+            print("mapping dist changed")
+        
+        # NTS: need to improve the bbox point additions
+        # insertion where??? add how many points???
+        #points2add = (math.floor(abs((xmax-xmin)/2))%xlength)/0.5
+        if math.floor(abs((xmax-xmin)/2)) > xlength+0.5:
+            print("x-axis requires an additional scan")
+            mappingPositions.insert(k+1,[v[0]-0.5, v[1], v[2]])
+
+        elif math.floor(abs((zmax-zmin)/2)) > zlength+1:
+            print("y-axis requires an additional scan")
+            #mappingPositions.insert(k+1,[val[0]-1, val[1], val[2]])
+
+        print(mappingPositions)
+
+        # Save feature locations to file
+        with open(os.path.join(const.OUTPUT_PATH,str(i)+'mapping_points_update' + str(k) + '.xyz'),
+                'w', newline='') as outfile:
+            csvwriter = csv.writer(outfile)
+            for i in mappingPositions:
+                csvwriter.writerow(i)
+        
+        currentPos, currentBearing, last_scan = nav_to_point(k, v, pioneer3at, False, currentPos, first_scan)
+        scanBearing = (scanBearing + 270) % 360  
+        prepare_to_map(pioneer3at, scanBearing)
+
 
     # NTS: once bbox is updated need to calc if there needs to be a change to mapping locations based on bbox dimensions and mappingdist
-
-    # NTS: need to first calculate rough mapping locations based on initial scan
-
+    
     # NTS: once mapping locations have been updated smoothly move to the next point using ET1's trajectory function and take a photo, then re-check the bbox and mappingdist and repat until return to starting location
 
 def getBraitenberg(robot, width, halfWidth):
