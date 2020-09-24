@@ -56,6 +56,8 @@ logging.info("{} features found -- Beginning survey".format(len(targets)-1))
 while pioneer3at.robot.step(pioneer3at.timestep) != -1:
     for i, target in enumerate(targets):
 
+        print(target)
+
         # Calculate initial bearing to target feature
         pioneer3at.robot.step(pioneer3at.timestep)
         startingPos = nav.robot_position(pioneer3at.gps)
@@ -84,13 +86,11 @@ while pioneer3at.robot.step(pioneer3at.timestep) != -1:
 
             # NTS: flag when areas of the feature have not been mapped
             if const.DEVICE == 'lidar':
-                nav.lidar_mapping(pioneer3at, targets[i][2], i,
-                    lastScan)
-                    #clust.convert_to_o3d(clusters[i]))
+                nav.lidar_mapping(pioneer3at, target, i,
+                    clust.convert_to_o3d(clusters[i]))
             elif const.DEVICE == 'camera':
-                nav.camera_mapping(pioneer3at, targets[i], i,
-                    lastScan)
-                    #clust.convert_to_o3d(clusters[i]))
+                nav.camera_mapping(pioneer3at, target, i,
+                    clust.convert_to_o3d(clusters[i]))
 
     # After list is done, shutdown
     logging.info("Survey complete")

@@ -47,19 +47,19 @@ def nav_to_point(i, target, pioneer3at, flag, startingPos, targetBearing, first_
 
             # The below code can be commented out to avoid additional scans at a set interval###
             # Capture a new scan, rotate based on first scan, and write to file
-            logging.debug("Acquiring LiDAR scan ...")
-            scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
-                                                    pioneer3at.lidar, currentPos,
-                                                    currentBearing)
-                                                    # , scan='feature', threshold=threshold)
-            transformed_scan = slam.rotate_scan(last_scan, scan)
-            lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
-                                                'nav2feature' + str(i) + 'scan' + str(counter) + '.xyz')
-            clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
+            # logging.debug("Acquiring LiDAR scan ...")
+            # scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
+            #                                         pioneer3at.lidar, currentPos,
+            #                                         currentBearing)
+            #                                         # , scan='feature', threshold=threshold)
+            # transformed_scan = slam.rotate_scan(last_scan, scan)
+            # lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
+            #                                     'nav2feature' + str(i) + 'scan' + str(counter) + '.xyz')
+            # clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
             
-            # Set the last_scan variable to the last transformed scan
-            last_scan = transformed_scan
-            counter +=1
+            # # Set the last_scan variable to the last transformed scan
+            # last_scan = transformed_scan
+            # counter +=1
 
             #####################################################################################
 
@@ -142,7 +142,9 @@ def prepare_to_map(pioneer3at, targetBearing):
             return
 
 # NTS: need to improve mapping, use front sensor to avoid nothing loop
-def lidar_mapping(pioneer3at, threshold, i, first_scan):
+def lidar_mapping(pioneer3at, target, i, first_scan):
+
+    threshold = target[2]
 
     # Identify which scan lines to use and calculate thresholds
     front = round(pioneer3at.hkfWidth/2)
@@ -159,13 +161,43 @@ def lidar_mapping(pioneer3at, threshold, i, first_scan):
     currentPos = robot_position(pioneer3at.gps)
     currentBearing = robot_bearing(pioneer3at.imu)
     startingPos = currentPos
-    lastScanPos = currentPos
     hasMoved = False
-    scanned = False
     counter = 0
 
-    # Set the last_scan variable to first lidar scan
-    last_scan = first_scan
+    # Scan the feature and roughly geocode it using the first lidar scan
+    logging.debug("Acquiring LiDAR scan ...")
+    scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
+                                            pioneer3at.lidar, currentPos,
+                                            currentBearing,
+                                            scan='feature', threshold=threshold)
+    lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
+                                        'pre_transform' + str(i) + 'scan' + str(counter) + '.xyz')
+    clust.write_lidar_scene(scan, path=lidar_feature_csvpath)
+    # transformed_scan = slam.rotate_scan(first_scan, scan)
+    print(currentPos)
+    print(currentBearing)
+    T = np.eye(4)
+    T[:3,:3] = scan.get_rotation_matrix_from_xyz((0,np.deg2rad((currentBearing + 360) % 360), 0))
+    T[0,3] = currentPos[0]
+    T[1,3] = currentPos[1]
+    T[2,3] = currentPos[2]
+    print(T)
+    transformed_scan = scan.transform(T)
+    # T = np.eye(4)
+    # T[:3,:3] = scan.get_rotation_matrix_from_xyz((0,np.deg2rad((target[1] + 180) % 360), 0))
+    # T[0,3] = target[0][0]
+    # T[1,3] = target[0][1]
+    # T[2,3] = target[0][2]
+    # print(T)
+    # transformed_scan = scan.transform(T)
+    lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
+                                        'lidar_feature' + str(i) + 'scan' + str(counter) + '.xyz')
+    clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
+    
+    # Set the last_scan variable to the last transformed scan and set lastScanpos
+    counter+=1
+    lastScanPos = currentPos
+    last_scan = scan
 
     # Loop for feature mapping
     while pioneer3at.robot.step(pioneer3at.timestep) != -1:
@@ -181,18 +213,27 @@ def lidar_mapping(pioneer3at, threshold, i, first_scan):
         # Navigate the robot around the feature until it returns
         # to its starting point
         if target_distance(lastScanPos, currentPos) > \
-            const.SCAN_THRESHOLD or scanned is False:
-
-            # Once first scan is taken, reset flag and scan based on distance threshold only
-            scanned = True
+            const.SCAN_THRESHOLD:
 
             # Capture a new scan, rotate based on first scan, and write to file
             logging.debug("Acquiring LiDAR scan ...")
             scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
                                                     pioneer3at.lidar, currentPos,
-                                                    currentBearing)
-                                                    # , scan='feature', threshold=threshold)
-            transformed_scan = slam.rotate_scan(last_scan, scan)
+                                                    currentBearing,
+                                                    scan='feature', threshold=threshold)
+            lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
+                                                'pre_transform' + str(i) + 'scan' + str(counter) + '.xyz')
+            clust.write_lidar_scene(scan, path=lidar_feature_csvpath)
+            # transformed_scan = slam.rotate_scan(last_scan, scan)
+            print(currentPos)
+            print(currentBearing)
+            T = np.eye(4)
+            T[:3,:3] = scan.get_rotation_matrix_from_xyz((0,np.deg2rad((currentBearing + 180) % 360), 0))
+            T[0,3] = currentPos[0]
+            T[1,3] = currentPos[1]
+            T[2,3] = currentPos[2]
+            print(T)
+            transformed_scan = scan.transform(T)
             lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
                                                 'lidar_feature' + str(i) + 'scan' + str(counter) + '.xyz')
             clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)

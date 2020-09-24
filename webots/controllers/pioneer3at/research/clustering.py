@@ -174,17 +174,9 @@ def cluster_points(array):
                 or zdist > const.FEATURE_THRESHOLD:
                 features.append(clusters[cluster])
 
-                # Print clusters to individual files
-                # if write=='y':
-                #     path=os.path.join(const.OUTPUT_PATH,  'cluster'+str(cluster)+'.xyz')
-                #     with open(path, 'w', newline='') as outfile:
-                #         csvwriter = csv.writer(outfile)
-                #         for row in clusters[cluster]:
-                #             csvwriter.writerow(row)
-
     return features
 
-def filter_points(df, k=5, threshold=1):
+def filter_points(df, k=50, threshold=1):
 
     # Nearest neighbours outlier setup
     knn = NearestNeighbors(n_neighbors=k)
