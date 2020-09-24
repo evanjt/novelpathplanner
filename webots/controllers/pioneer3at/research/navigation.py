@@ -285,6 +285,7 @@ def camera_mapping(pioneer3at, targets, i, first_scan):
     bbox = targets[3]
     threshold = targets[2]
     scanBearing = targets[1]
+    firstScanBearing = scanBearing
 
     # for later use in adding additional points along a plane
     xlength = math.floor(abs((bbox[1]-bbox[0])/2))
@@ -300,9 +301,9 @@ def camera_mapping(pioneer3at, targets, i, first_scan):
         mappingPositions.append([bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
     elif scanBearing == 90:
         print("90")
-        mappingPositions.append([bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
-        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold])
         mappingPositions.append([bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
+        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold])
+        mappingPositions.append([bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
         mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold])
     elif scanBearing == 180:
         print("180")
@@ -322,14 +323,16 @@ def camera_mapping(pioneer3at, targets, i, first_scan):
     print(mappingPositions)
 
     # Save feature locations to file
-    with open(os.path.join(const.OUTPUT_PATH,'mapping_points.xyz'),
+    with open(os.path.join(const.OUTPUT_PATH,str(i)+'mapping_points.xyz'),
               'w', newline='') as outfile:
         csvwriter = csv.writer(outfile)
-        for i in mappingPositions:
-            csvwriter.writerow(i)
+        for row in mappingPositions:
+            csvwriter.writerow(row)
     
     for k, v in enumerate(mappingPositions):
-        
+        # bboxFlag = True
+        # while bboxFlag is True:
+            
         # Calculate starting position
         pioneer3at.robot.step(pioneer3at.timestep)
         currentPos = robot_position(pioneer3at.gps)
@@ -398,13 +401,41 @@ def camera_mapping(pioneer3at, targets, i, first_scan):
         # NTS: need to improve the bbox point additions
         # insertion where??? add how many points???
         #points2add = (math.floor(abs((xmax-xmin)/2))%xlength)/0.5
-        if math.floor(abs((xmax-xmin)/2)) > xlength+0.5:
-            print("x-axis requires an additional scan")
-            mappingPositions.insert(k+1,[v[0]-0.5, v[1], v[2]])
 
-        elif math.floor(abs((zmax-zmin)/2)) > zlength+1:
-            print("y-axis requires an additional scan")
-            #mappingPositions.insert(k+1,[val[0]-1, val[1], val[2]])
+        print('length = %f' %math.floor(abs((xmax-xmin)/2)))
+        print('old length = %f' %xlength)
+
+        if math.floor(abs((xmax-xmin)/2)) >= xlength+1 or \
+                math.floor(abs((zmax-zmin)/2)) >= zlength+1:
+            print("feature requires an additional scan")
+            if firstScanBearing == 0:
+                print("0")
+                mappingPositions[0]=[bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold]
+                mappingPositions[1]=[bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2]
+                mappingPositions[2]=[bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold]
+                mappingPositions[3]=[bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2]
+            elif firstScanBearing == 90:
+                print("90")
+                mappingPositions[0]=[bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2]
+                mappingPositions[1]=[bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold]
+                mappingPositions[2]=[bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2]
+                mappingPositions[3]=[bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold]
+            elif firstScanBearing == 180:
+                print("180")
+                mappingPositions[0]=[bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold]
+                mappingPositions[1]=[bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2]
+                mappingPositions[2]=[bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold]
+                mappingPositions[3]=[bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2]
+            elif firstScanBearing == 270:
+                print("270")
+                mappingPositions[0]=[bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2]
+                mappingPositions[1]=[bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold]
+                mappingPositions[2]=[bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2]
+                mappingPositions[3]=[bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold]
+            else:
+                print("bearing error")
+        else:
+            bboxFlag = False
 
         print(mappingPositions)
 
@@ -412,13 +443,12 @@ def camera_mapping(pioneer3at, targets, i, first_scan):
         with open(os.path.join(const.OUTPUT_PATH,str(i)+'mapping_points_update' + str(k) + '.xyz'),
                 'w', newline='') as outfile:
             csvwriter = csv.writer(outfile)
-            for i in mappingPositions:
-                csvwriter.writerow(i)
+            for row in mappingPositions:
+                csvwriter.writerow(row)
         
-        currentPos, currentBearing, last_scan = nav_to_point(k, v, pioneer3at, False, currentPos, first_scan)
+        currentPos, currentBearing, last_scan = nav_to_point(k, mappingPositions[k], pioneer3at, False, currentPos, first_scan)
         scanBearing = (scanBearing + 270) % 360  
         prepare_to_map(pioneer3at, scanBearing)
-
 
     # NTS: once bbox is updated need to calc if there needs to be a change to mapping locations based on bbox dimensions and mappingdist
     
