@@ -34,7 +34,6 @@ pioneer3at.startLogging()
 pioneer3at.robot.step(pioneer3at.timestep)
 
 # Scan surrounding area and detect targets for mapping
-# NTS: instead of using first_scan in the rotation using only the relevant cluster
 logging.info("Pioneer is scanning surrounding area for features")
 first_scan = clust.capture_lidar_scene(pioneer3at.robot,
                             pioneer3at.timestep,

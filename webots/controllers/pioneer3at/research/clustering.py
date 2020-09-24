@@ -53,7 +53,6 @@ def get_targets(robot, timestep, lidar, location, point_array):
         mappingDist = (ymax+const.SCANNER_HEIGHT)/ \
             math.tan(math.radians(const.VERTICAL_VOF))
 
-        #NTS: change mapping to the most visible face from the first scan is visited first
         if (xmax - xmin) > (zmax - zmin) and zmax > const.HOME_LOCATION[2]:
             bearingList.append(90)
             featureList.append([xmin+(xmax-xmin)/2, zmin-mappingDist])
@@ -168,7 +167,6 @@ def cluster_points(array):
             z = z.reshape(-1,1)
             clusters.append(np.hstack((x, y, z)).tolist())
 
-            # NTS: need better hueristic to id what clusters are features
             xdist = max(clusters[cluster][0]) - min(clusters[cluster][0])
             zdist = max(clusters[cluster][2]) - min(clusters[cluster][2])
 
