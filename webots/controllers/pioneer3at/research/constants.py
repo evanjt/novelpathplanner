@@ -19,10 +19,14 @@ VERTICAL_VOF = 45
 SCANNER_HEIGHT = 0.5
 
 # Define the mapping mode
-DEVICE = 'camera'
+DEVICE = 'lidar'
+#DEVICE = 'camera'
 
 # Define the required proximity (m) from a target point to be a successful navigation
 MAPPING_DISTANCE = 1
+
+# Deinfe the required buffer range (m) for mapping to occur  
+MAPPING_BUFFER = 0.5
 
 # Define feature detection threshold size (m)
 FEATURE_THRESHOLD = 1

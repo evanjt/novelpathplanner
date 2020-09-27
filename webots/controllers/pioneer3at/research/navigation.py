@@ -154,17 +154,21 @@ def prepare_to_map(pioneer3at, targetBearing):
 # NTS: need to improve mapping, use front sensor to avoid nothing loop
 def lidar_mapping(pioneer3at, target, i, first_scan):
 
+    # Define the mapping optimal mapping distance as a new variable
     threshold = target[2]
+
+    #Unused SLAM variable
+    #last_scan = first_scan
 
     # Identify which scan lines to use and calculate thresholds
     front = round(pioneer3at.hkfWidth/2)
     frontSide = round(pioneer3at.hkfWidth/3)
     side = round(pioneer3at.hkfWidth/6)
-    thresholdBuffer = threshold + 0.1
-    frontSideThreshold = math.sqrt(threshold)
-    frontSideThresholdBuffer = frontSideThreshold + 0.1
+    thresholdBuffer = threshold + const.MAPPING_BUFFER
+    frontSideThreshold = math.sqrt(pow(threshold,2)+pow(threshold,2))
+    frontSideThresholdBuffer = frontSideThreshold + const.MAPPING_BUFFER
     frontThreshold = threshold
-    frontThresholdBuffer = threshold + 0.1
+    frontThresholdBuffer = threshold + const.MAPPING_BUFFER
 
     # Calculate starting position
     pioneer3at.robot.step(pioneer3at.timestep)
@@ -173,45 +177,35 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
     startingPos = currentPos
     hasMoved = False
     counter = 0
-
-    # Scan the feature and roughly geocode it using the first lidar scan
+    
+    # Capture a new scan, rotate based on first scan, and write to file
     logging.debug("Acquiring LiDAR scan ...")
     scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
                                             pioneer3at.lidar, currentPos,
                                             currentBearing,
                                             scan='feature', threshold=threshold)
-    lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
-                                        'pre_transform' + str(i) + 'scan' + str(counter) + '.xyz')
-    clust.write_lidar_scene(scan, path=lidar_feature_csvpath)
-    # transformed_scan = slam.rotate_scan(first_scan, scan)
-    # R = scan.get_rotation_matrix_from_xyz((0,np.deg2rad((currentBearing + 180) % 360), 0))
-    # transformed_scan = scan.rotate(R, center=currentPos)
-    print(currentPos)
-    print(currentBearing)
+
     
+    # 4D Transformation method using gps and imu for georeferencing scans
     T = np.eye(4)
-    T[:3,:3] = scan.get_rotation_matrix_from_xyz((0,np.deg2rad((currentBearing + 180) % 360), 0))
+    axisRotation = np.deg2rad((180 - currentBearing + 360) % 360) 
+    T[:3,:3] = scan.get_rotation_matrix_from_xyz((0,axisRotation, 0))
     T[0,3] = currentPos[0]
     T[1,3] = currentPos[1]
     T[2,3] = currentPos[2]
-    print(T)
     transformed_scan = scan.transform(T)
     
-    # T = np.eye(4)
-    # T[:3,:3] = scan.get_rotation_matrix_from_xyz((0,np.deg2rad((target[1] + 180) % 360), 0))
-    # T[0,3] = target[0][0]
-    # T[1,3] = target[0][1]
-    # T[2,3] = target[0][2]
-    # print(T)
-    # transformed_scan = scan.transform(T)
+    # # SlAM method using scans only for georeferencing
+    # transformed_scan = slam.rotate_scan(last_scan, scan)
+    # last_scan = transformed_scan
+
     lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
-                                        'lidar_feature' + str(i) + 'scan' + str(counter) + '.xyz')
+                                        'lidar_feature' + str(i+1) + 'scan' + str(counter+1) + '.xyz')
     clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
     
     # Set the last_scan variable to the last transformed scan and set lastScanpos
     counter+=1
     lastScanPos = currentPos
-    last_scan = scan
 
     # Loop for feature mapping
     while pioneer3at.robot.step(pioneer3at.timestep) != -1:
@@ -225,7 +219,7 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
         values = pioneer3at.hokuyoFront.getRangeImage()
 
         # Navigate the robot around the feature until it returns
-        # to its starting point
+        # to its starting point, scanning at the set threshold distance
         if target_distance(lastScanPos, currentPos) > \
             const.SCAN_THRESHOLD:
 
@@ -235,51 +229,49 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
                                                     pioneer3at.lidar, currentPos,
                                                     currentBearing,
                                                     scan='feature', threshold=threshold)
-            lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
-                                                'pre_transform' + str(i) + 'scan' + str(counter) + '.xyz')
-            clust.write_lidar_scene(scan, path=lidar_feature_csvpath)
-            # transformed_scan = slam.rotate_scan(last_scan, scan)
-            print(currentPos)
-            print(currentBearing)
+
+            # 4D Transformation method using gps and imu for georeferencing scans
             T = np.eye(4)
-            T[:3,:3] = scan.get_rotation_matrix_from_xyz((0,np.deg2rad((currentBearing + 180) % 360), 0))
+            axisRotation = np.deg2rad((180 - currentBearing + 360) % 360) 
+            T[:3,:3] = scan.get_rotation_matrix_from_xyz((0,axisRotation, 0))
             T[0,3] = currentPos[0]
             T[1,3] = currentPos[1]
             T[2,3] = currentPos[2]
-            print(T)
             transformed_scan = scan.transform(T)
+            
+            # # SlAM method using scans only for georeferencing
+            # transformed_scan = slam.rotate_scan(last_scan, scan)
+            # last_scan = transformed_scan
+            
             lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
-                                                'lidar_feature' + str(i) + 'scan' + str(counter) + '.xyz')
+                                                'lidar_feature' + str(i+1) + 'scan' + str(counter+1) + '.xyz')
             clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
             
             # Set the last_scan variable to the last transformed scan and set lastScanpos
-            last_scan = transformed_scan
             lastScanPos = currentPos
             counter +=1
 
         elif hasMoved and distanceToStart < const.LOOP_THRESHOLD:
-            logging.info("Mapped feature #{} and stored points in CSV".format(i+1))
+            logging.info("Mapping of feature {} complete".format(i+1))
             return
-
         elif not hasMoved and distanceToStart > const.LOOP_THRESHOLD:
             hasMoved = True
-
         else:
-            # if values[side] < threshold \
-            #     or values[frontSide] < frontSideThreshold \
-            #     or values[front] < frontThreshold:
-            #     set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED*0.6)
-
-            # elif values[side] > thresholdBuffer \
-            #     or values[frontSide] > frontSideThresholdBuffer \
-            #     or values[front] > frontThreshold:
-            #     set_velocity(pioneer3at.wheels, const.MAX_SPEED*0.6, const.MAX_SPEED)
-
-            # else:
-            #     set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
+            if values[side] < threshold \
+                or values[frontSide] < frontSideThreshold \
+                or values[front] < frontThresholdBuffer:
+                set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED*0.6)
+            elif (values[side] > thresholdBuffer and values[side] < thresholdBuffer + threshold*const.MAPPING_BUFFER) \
+                or (values[frontSide] > frontSideThresholdBuffer and values[side] < thresholdBuffer + threshold*const.MAPPING_BUFFER)\
+                or (values[front] > frontThreshold and values[side] < thresholdBuffer + threshold*const.MAPPING_BUFFER):
+                set_velocity(pioneer3at.wheels, const.MAX_SPEED*0.6, const.MAX_SPEED)
+            elif values[side] > thresholdBuffer \
+                and values[frontSide] > frontSideThresholdBuffer \
+                and values[front] > frontThresholdBuffer:
+                set_velocity(pioneer3at.wheels, const.MAX_SPEED*0.6, const.MAX_SPEED)
+            else:
+                set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
         
-            set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
-
 # NTS: Need to incorperate camera, either move camera to side on, or change prepare to map and lidar sample obtained
 # NTS: ET1's trajectory's will play a part in this decision
 def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
@@ -332,11 +324,11 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
         [mappingPositions[3].append([bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
     else:
         logging.info("Bearing error encountered whilst mapping feature {}"
-                    .format(featureNumber))
+                    .format(featureNumber+1))
 
     # Save feature mapping locations to file
-    with open(os.path.join(const.OUTPUT_PATH, str(featureNumber) + 
-              'mapping_points' + str(edgeCounter) + str(scanCounter) + 
+    with open(os.path.join(const.OUTPUT_PATH, str(featureNumber+1) + 
+              'mapping_points' + str(edgeCounter+1) + str(scanCounter+1) + 
               '.xyz'), 'w', newline='') as outfile:
         csvwriter = csv.writer(outfile)
         for edge in mappingPositions:
@@ -374,7 +366,7 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
             axisRotation = np.deg2rad(currentBearing) 
         else:
             logging.info("Bearing error encountered whilst mapping feature {}"
-                        .format(featureNumber))
+                        .format(featureNumber+1))
         T[:3,:3] = scan.get_rotation_matrix_from_xyz((0,axisRotation, 0))
         T[0,3] = currentPos[0]
         T[1,3] = currentPos[1]
@@ -386,8 +378,8 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
 
         # Output transformed scan to file
         lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
-                                            'lidar_feature'+ str(featureNumber) + \
-                                            'scan' + str(edgeCounter) + str(scanCounter) + \
+                                            'lidar_feature'+ str(featureNumber+1) + \
+                                            'scan' + str(edgeCounter+1) + str(scanCounter+1) + \
                                             '.xyz')
         clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
     
@@ -398,7 +390,7 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
         # Warn user if multiple features detected
         if len(features) > 1:
             logging.info("Warning one feature expected but multiple detected when mapping feature {} edge {}"
-                        .format(featureNumber, edgeCounter))
+                        .format(featureNumber+1, edgeCounter+1))
 
         # Update the feature bbox dimensions based on the most recent scan
         for feature in features:
@@ -419,15 +411,17 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
         if ymax > threshold + 0.1:
             threshold = ymax
             logging.info("Height increase in feature {} detected, increasing mapping distance"
-                        .format(featureNumber))
+                        .format(featureNumber+1))
                 
         # Determine if bbox changes indicate additional scans are required 
         if math.floor((bbox[1]-bbox[0])/const.SCAN_THRESHOLD) > xlength:
-            logging.info("Feature requires an additional scan(s) along the x axis")
+            logging.info("Feature requires an additional scan(s) along edge {}"
+                        .format(edgeCounter+1))
             bboxFlag=True
             xlength = math.floor((bbox[1]-bbox[0])/const.SCAN_THRESHOLD)
-        elif math.floor((bbox[3]-bbox[2])/const.SCAN_THRESHOLD) > zlength:
-            logging.info("Feature requires an additional scan(s) along the z axis")
+        if math.floor((bbox[3]-bbox[2])/const.SCAN_THRESHOLD) > zlength:
+            logging.info("Feature requires an additional scan(s) along edge {}"
+                        .format(edgeCounter+1))
             bboxFlag=True
             zlength = math.floor((bbox[3]-bbox[2])/const.SCAN_THRESHOLD)
         
@@ -455,11 +449,11 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
                 mappingPositions[3][:] = [[bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i] for i in range(zlength+1)]
             else:
                 logging.info("Bearing error encountered whilst mapping feature {}"
-                            .format(featureNumber))
+                            .format(featureNumber+1))
             
             # Save feature locations to file
-            with open(os.path.join(const.OUTPUT_PATH, str(featureNumber) + \
-                    'mapping_points' + str(edgeCounter) + str(scanCounter) + \
+            with open(os.path.join(const.OUTPUT_PATH, str(featureNumber+1) + \
+                    'mapping_points' + str(edgeCounter+1) + str(scanCounter+1) + \
                     '.xyz'), 'w', newline='') as outfile:
                 csvwriter = csv.writer(outfile)
                 for edge in mappingPositions:
@@ -474,12 +468,12 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
         if ((scanBearing == 90 or scanBearing == 270) and scanCounter == xlength+1) or \
             ((scanBearing == 0 or scanBearing == 180) and scanCounter == zlength+1):
             logging.info("Mapping of edge {} feature {} complete"
-                        .format(edgeCounter, featureNumber))
+                        .format(edgeCounter+1, featureNumber+1))
             scanCounter = 0
             edgeCounter +=1
             if edgeCounter == 4:
                 logging.info("Mapping of feature {} complete"
-                            .format(featureNumber))
+                            .format(featureNumber+1))
                 mappingFlag = False
             else:    
                 currentPos, currentBearing, last_scan = nav_to_point(scanCounter, mappingPositions[edgeCounter][scanCounter], pioneer3at, False, currentPos, first_scan)
