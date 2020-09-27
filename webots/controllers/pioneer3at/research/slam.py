@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 
 '''
-    Code related to navigation methods for the use of the pioneer3at
-    controller in webots.
+    Code related to Simultaneous Localisation and Mapping (SLAM) 
+    for the use of the pioneer3at controller in webots.
 
     Authors:    Josh Clough
                 Evan Thomas

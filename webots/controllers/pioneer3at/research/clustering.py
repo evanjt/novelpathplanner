@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+
 '''
     Code related to clustering methods for the use of the pioneer3at
     controller in webots.
@@ -15,12 +16,13 @@ import numpy as np
 import math
 import tsp
 from sklearn.cluster import DBSCAN
-import research.constants as const
-import research.navigation as nav
 from sklearn.metrics.pairwise import euclidean_distances
 import open3d as o3d
 from sklearn.neighbors import NearestNeighbors
 
+# Project specific functions
+import research.constants as const
+import research.navigation as nav
 
 def get_targets(robot, timestep, lidar, location, point_array):
 
@@ -53,22 +55,40 @@ def get_targets(robot, timestep, lidar, location, point_array):
         mappingDist = (ymax+const.SCANNER_HEIGHT)/ \
             math.tan(math.radians(const.VERTICAL_VOF))
 
-        if (xmax - xmin) > (zmax - zmin) and zmax > const.HOME_LOCATION[2]:
-            bearingList.append(90)
-            featureList.append([xmin+(xmax-xmin)/2, zmin-mappingDist])
-            mappingDists.append(mappingDist)
-        elif (xmax - xmin) > (zmax - zmin) and zmax < const.HOME_LOCATION[2]:
-            bearingList.append(270)
-            featureList.append([xmin+(xmax-xmin)/2, zmax+mappingDist])
-            mappingDists.append(mappingDist)
-        elif (zmax - zmin) > (xmax - xmin) and xmax > const.HOME_LOCATION[0]:
-            bearingList.append(0)
-            featureList.append([xmin-mappingDist, zmin+(zmax-zmin)/2])
-            mappingDists.append(mappingDist)
-        else:
-            bearingList.append(180)
-            featureList.append([xmax+mappingDist, zmin+(zmax-zmin)/2])
-            mappingDists.append(mappingDist)
+        if const.DEVICE == "lidar":
+            if (xmax - xmin) > (zmax - zmin) and zmax > const.HOME_LOCATION[2]:
+                bearingList.append(90)
+                featureList.append([xmin+(xmax-xmin)/2, zmin-mappingDist])
+                mappingDists.append(mappingDist)
+            elif (xmax - xmin) > (zmax - zmin) and zmax < const.HOME_LOCATION[2]:
+                bearingList.append(270)
+                featureList.append([xmin+(xmax-xmin)/2, zmax+mappingDist])
+                mappingDists.append(mappingDist)
+            elif (zmax - zmin) > (xmax - xmin) and xmax > const.HOME_LOCATION[0]:
+                bearingList.append(0)
+                featureList.append([xmin-mappingDist, zmin+(zmax-zmin)/2])
+                mappingDists.append(mappingDist)
+            else:
+                bearingList.append(180)
+                featureList.append([xmax+mappingDist, zmin+(zmax-zmin)/2])
+                mappingDists.append(mappingDist)
+        if const.DEVICE == "camera":
+            if (xmax - xmin) > (zmax - zmin) and zmax > const.HOME_LOCATION[2]:
+                bearingList.append(90)
+                featureList.append([xmax, zmin-mappingDist])
+                mappingDists.append(mappingDist)
+            elif (xmax - xmin) > (zmax - zmin) and zmax < const.HOME_LOCATION[2]:
+                bearingList.append(270)
+                featureList.append([xmin, zmax+mappingDist])
+                mappingDists.append(mappingDist)
+            elif (zmax - zmin) > (xmax - xmin) and xmax > const.HOME_LOCATION[0]:
+                bearingList.append(0)
+                featureList.append([xmin-mappingDist, zmin])
+                mappingDists.append(mappingDist)
+            else:
+                bearingList.append(180)
+                featureList.append([xmax+mappingDist, zmax])
+                mappingDists.append(mappingDist)
 
     # Add 2D home coordinates as a feature and calculate tsp route
     # Disable tsp stdout
@@ -118,12 +138,12 @@ def capture_lidar_scene(robot, timestep, lidar_device, location, bearing,
         distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
 
         if scan == 'feature':
-            if row.y > -0.5 and row.y < 5 \
+            if row.y > -0.4 and row.y < 5 \
                 and row.x < 0 and row.z < 5 and row.z > -5 \
                 and distance < threshold + 5:
                 point_list.append((row.x, row.y, row.z))
         else:
-            if row.y > -0.5 and row.y < 5 and distance < threshold + 5:
+            if row.y > -0.4 and row.y < 5 and distance < threshold + 5:
                 point_list.append((row.x, row.y, row.z))
 
     logging.info("Captured {} points in LiDAR scene".format(len(point_list)))

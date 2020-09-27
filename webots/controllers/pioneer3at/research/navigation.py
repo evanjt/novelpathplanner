@@ -13,6 +13,8 @@ import os
 import logging
 import csv
 import numpy as np
+
+# Project specific functions
 import research.constants as const
 import research.clustering as clust
 import research.slam as slam
@@ -84,13 +86,17 @@ def nav_to_point(i, target, pioneer3at, flag, startingPos, first_scan):
             flag = True
 
         elif targetDistance > const.MAPPING_DISTANCE \
-                and abs(targetBearing - currentBearing) > 1 \
-                and (targetBearing - currentBearing + 360) % 360 > 180:
+                and abs(targetBearing - currentBearing) >= const.ANGULAR_THRESHOLD \
+                and (targetBearing - currentBearing + 360) % 360 >= 180 + const.ANGULAR_THRESHOLD:
             set_velocity(pioneer3at.wheels, const.MAX_SPEED*0.5, const.MAX_SPEED)
 
         elif targetDistance > const.MAPPING_DISTANCE \
-                and abs(targetBearing - currentBearing) > 1 \
-                and (targetBearing - currentBearing + 360) % 360 < 180:
+                and abs(targetBearing - currentBearing) >= const.ANGULAR_THRESHOLD \
+                and (targetBearing - currentBearing + 360) % 360 < 180 - const.ANGULAR_THRESHOLD:
+            set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED*0.5)
+        
+        elif targetDistance > const.MAPPING_DISTANCE \
+                and abs(targetBearing - currentBearing) >= const.ANGULAR_THRESHOLD:
             set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED*0.5)
 
         elif targetDistance > const.MAPPING_DISTANCE:
@@ -133,14 +139,14 @@ def prepare_to_map(pioneer3at, targetBearing):
 
         # Move the robot until side on with the target feature
         # Once side on mark the startingposition of the feature mapping
-        if abs(targetBearing - currentBearing) > 1 \
-                and (targetBearing - currentBearing + 360) % 360 > 180:
-            set_velocity(pioneer3at.wheels, -const.MAX_SPEED, const.MAX_SPEED)
-
-        elif abs(targetBearing - currentBearing) > 1 \
-                and (targetBearing - currentBearing + 360) % 360 < 180:
-            set_velocity(pioneer3at.wheels, const.MAX_SPEED, -const.MAX_SPEED)
-
+        if abs(targetBearing - currentBearing) > const.ANGULAR_THRESHOLD \
+                and (targetBearing - currentBearing + 360) % 360 >= 180 + const.ANGULAR_THRESHOLD:
+            set_velocity(pioneer3at.wheels, -0.25*const.MAX_SPEED, 0.25*const.MAX_SPEED)
+        elif abs(targetBearing - currentBearing) > const.ANGULAR_THRESHOLD \
+                and (targetBearing - currentBearing + 360) % 360 <= 180 - const.ANGULAR_THRESHOLD:
+            set_velocity(pioneer3at.wheels, 0.25*const.MAX_SPEED, -0.25*const.MAX_SPEED)
+        elif abs(targetBearing - currentBearing) > const.ANGULAR_THRESHOLD:
+            set_velocity(pioneer3at.wheels, 0.25*const.MAX_SPEED, -0.25*const.MAX_SPEED)
         else:
             set_velocity(pioneer3at.wheels, 0, 0)
             return
@@ -274,64 +280,71 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
         
             set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
 
-def camera_mapping(pioneer3at, targets, i, first_scan):
-
+# NTS: Need to incorperate camera, either move camera to side on, or change prepare to map and lidar sample obtained
+# NTS: ET1's trajectory's will play a part in this decision
+def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
+    
     # Calculate starting position
     pioneer3at.robot.step(pioneer3at.timestep)
     currentPos = robot_position(pioneer3at.gps)
     currentBearing = robot_bearing(pioneer3at.imu)
     
-    # extract target information into variables
+    # Extract target information into variables
     bbox = targets[3]
     threshold = targets[2]
     scanBearing = targets[1]
     firstScanBearing = scanBearing
-
-    # for later use in adding additional points along a plane
-    xlength = math.floor(abs((bbox[1]-bbox[0])/2))
-    zlength = math.floor(abs((bbox[3]-bbox[2])/2))
-
-    # calculate the mapping positions
-    mappingPositions = []
-    if scanBearing == 0:
-        print("0")
-        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold])
-        mappingPositions.append([bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
-        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold])
-        mappingPositions.append([bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
-    elif scanBearing == 90:
-        print("90")
-        mappingPositions.append([bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
-        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold])
-        mappingPositions.append([bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
-        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold])
-    elif scanBearing == 180:
-        print("180")
-        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold])
-        mappingPositions.append([bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
-        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold])
-        mappingPositions.append([bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
-    elif scanBearing == 270:
-        print("270")
-        mappingPositions.append([bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
-        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold])
-        mappingPositions.append([bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2])
-        mappingPositions.append([bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold])
-    else:
-        print("bearing error")
-
-    print(mappingPositions)
-
-    # Save feature locations to file
-    with open(os.path.join(const.OUTPUT_PATH,str(i)+'mapping_points.xyz'),
-              'w', newline='') as outfile:
-        csvwriter = csv.writer(outfile)
-        for row in mappingPositions:
-            csvwriter.writerow(row)
     
-    for k, v in enumerate(mappingPositions):
-        # bboxFlag = True
-        # while bboxFlag is True:
+    #Unused SLAM variable
+    #last_scan = first_scan
+
+    # Variables for mapping control, as well as adding and indicating additional points along a plane
+    mappingFlag = True
+    bboxFlag=False
+    edgeCounter = 0
+    scanCounter = 0
+    xlength = math.floor((bbox[1]-bbox[0])/const.SCAN_THRESHOLD)
+    zlength = math.floor((bbox[3]-bbox[2])/const.SCAN_THRESHOLD)
+
+    # Initialise and calculate the mapping positions
+    mappingPositions = []
+    [mappingPositions.append([]) for i in range(4)]
+
+    if scanBearing == 0:
+        [mappingPositions[0].append([bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
+        [mappingPositions[1].append([bbox[0]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[3]+threshold]) for i in range(xlength+1)]
+        [mappingPositions[2].append([bbox[1]+threshold, 0, bbox[3]-zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
+        [mappingPositions[3].append([bbox[1]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold]) for i in range(xlength+1)]
+    elif scanBearing == 90:
+        [mappingPositions[0].append([bbox[1]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold]) for i in range(xlength+1)]
+        [mappingPositions[1].append([bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
+        [mappingPositions[2].append([bbox[0]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[3]+threshold]) for i in range(xlength+1)]
+        [mappingPositions[3].append([bbox[1]+threshold, 0, bbox[3]-zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
+    elif scanBearing == 180:
+        [mappingPositions[0].append([bbox[1]+threshold, 0, bbox[3]-zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
+        [mappingPositions[1].append([bbox[1]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold]) for i in range(xlength+1)]
+        [mappingPositions[2].append([bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
+        [mappingPositions[3].append([bbox[0]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[3]+threshold]) for i in range(xlength+1)]
+    elif scanBearing == 270:
+        [mappingPositions[0].append([bbox[0]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[3]+threshold]) for i in range(xlength+1)]
+        [mappingPositions[1].append([bbox[1]+threshold, 0, bbox[3]-zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
+        [mappingPositions[2].append([bbox[1]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold]) for i in range(xlength+1)]
+        [mappingPositions[3].append([bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
+    else:
+        logging.info("Bearing error encountered whilst mapping feature {}"
+                    .format(featureNumber))
+
+    # Save feature mapping locations to file
+    with open(os.path.join(const.OUTPUT_PATH, str(featureNumber) + 
+              'mapping_points' + str(edgeCounter) + str(scanCounter) + 
+              '.xyz'), 'w', newline='') as outfile:
+        csvwriter = csv.writer(outfile)
+        for edge in mappingPositions:
+            for point in edge:
+                csvwriter.writerow(point)    
+
+    # Loop for feture mapping, where mapping positions are incrementally updated with each scan 
+    while mappingFlag is True:
             
         # Calculate starting position
         pioneer3at.robot.step(pioneer3at.timestep)
@@ -344,7 +357,12 @@ def camera_mapping(pioneer3at, targets, i, first_scan):
                                                 pioneer3at.lidar, currentPos,
                                                 currentBearing,
                                                 scan='feature', threshold=threshold)
-        #transformed_scan = slam.rotate_scan(last_scan, scan)
+        
+        # # SlAM method using scans only for georeferencing
+        # transformed_scan = slam.rotate_scan(last_scan, scan)
+        # last_scan = transformed_scan
+        
+        # 4D Transformation method using gps and imu for georeferencing scans
         T = np.eye(4)
         if scanBearing == 0:
             axisRotation = np.deg2rad(currentBearing + 180) % 360 
@@ -355,26 +373,34 @@ def camera_mapping(pioneer3at, targets, i, first_scan):
         elif scanBearing == 270:
             axisRotation = np.deg2rad(currentBearing) 
         else:
-            print("Bearing error!")
+            logging.info("Bearing error encountered whilst mapping feature {}"
+                        .format(featureNumber))
         T[:3,:3] = scan.get_rotation_matrix_from_xyz((0,axisRotation, 0))
         T[0,3] = currentPos[0]
         T[1,3] = currentPos[1]
         T[2,3] = currentPos[2]
-        print(T)
         transformed_scan = scan.transform(T)
+
+        # Increment scan counter
+        scanCounter +=1
+
+        # Output transformed scan to file
         lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
-                                            'lidar_feature'+ str(i) + 'scan' + str(k) + '.xyz')
+                                            'lidar_feature'+ str(featureNumber) + \
+                                            'scan' + str(edgeCounter) + str(scanCounter) + \
+                                            '.xyz')
         clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
     
-        # Detect features/clusters within lidar scene
+        # Detect features/clusters within the transformed lidar scan
         logging.debug("Clustering LiDAR scan ...")
         features = clust.cluster_points(np.array(transformed_scan.points))
 
+        # Warn user if multiple features detected
         if len(features) > 1:
-            print("Warning one feature expected but multiple detected")
+            logging.info("Warning one feature expected but multiple detected when mapping feature {} edge {}"
+                        .format(featureNumber, edgeCounter))
 
-        # NTS: need to properly rotate the cloud for accurate bbox update
-        # NTS: could potentially be other problems with the bbox update
+        # Update the feature bbox dimensions based on the most recent scan
         for feature in features:
             xmax = max(feature, key=lambda x: x[0])[0]
             xmin = min(feature, key=lambda x: x[0])[0]
@@ -384,75 +410,88 @@ def camera_mapping(pioneer3at, targets, i, first_scan):
 
         if xmin < bbox[0]:
             bbox[0] = xmin
-            print("xmin changed")
         if xmax > bbox[1]:
             bbox[1] = xmax
-            print("xmax changed")
         if zmin < bbox[2]:
             bbox[2] = zmin
-            print("zmin changed")
         if zmax > bbox[3]:
             bbox[3] = zmax
-            print("zmax changed")
-        if ymax > threshold:
+        if ymax > threshold + 0.1:
             threshold = ymax
-            print("mapping dist changed")
+            logging.info("Height increase in feature {} detected, increasing mapping distance"
+                        .format(featureNumber))
+                
+        # Determine if bbox changes indicate additional scans are required 
+        if math.floor((bbox[1]-bbox[0])/const.SCAN_THRESHOLD) > xlength:
+            logging.info("Feature requires an additional scan(s) along the x axis")
+            bboxFlag=True
+            xlength = math.floor((bbox[1]-bbox[0])/const.SCAN_THRESHOLD)
+        elif math.floor((bbox[3]-bbox[2])/const.SCAN_THRESHOLD) > zlength:
+            logging.info("Feature requires an additional scan(s) along the z axis")
+            bboxFlag=True
+            zlength = math.floor((bbox[3]-bbox[2])/const.SCAN_THRESHOLD)
         
-        # NTS: need to improve the bbox point additions
-        # insertion where??? add how many points???
-        #points2add = (math.floor(abs((xmax-xmin)/2))%xlength)/0.5
-
-        print('length = %f' %math.floor(abs((xmax-xmin)/2)))
-        print('old length = %f' %xlength)
-
-        if math.floor(abs((xmax-xmin)/2)) >= xlength+1 or \
-                math.floor(abs((zmax-zmin)/2)) >= zlength+1:
-            print("feature requires an additional scan")
+        # If additional scans are required update mapping positions
+        if bboxFlag:
             if firstScanBearing == 0:
-                print("0")
-                mappingPositions[0]=[bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold]
-                mappingPositions[1]=[bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2]
-                mappingPositions[2]=[bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold]
-                mappingPositions[3]=[bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2]
+                mappingPositions[0][:] = [[bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i] for i in range(zlength+1)]
+                mappingPositions[1][:] = [[bbox[0]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[3]+threshold] for i in range(xlength+1)]
+                mappingPositions[2][:] = [[bbox[1]+threshold, 0, bbox[3]-zero_division(bbox[3]-bbox[2],zlength)*i] for i in range(zlength+1)]
+                mappingPositions[3][:] = [[bbox[1]-zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold] for i in range(xlength+1)]
             elif firstScanBearing == 90:
-                print("90")
-                mappingPositions[0]=[bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2]
-                mappingPositions[1]=[bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold]
-                mappingPositions[2]=[bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2]
-                mappingPositions[3]=[bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold]
+                mappingPositions[0][:] = [[bbox[1]-zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold] for i in range(xlength+1)]
+                mappingPositions[1][:] = [[bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i] for i in range(zlength+1)]
+                mappingPositions[2][:] = [[bbox[0]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[3]+threshold] for i in range(xlength+1)]
+                mappingPositions[3][:] = [[bbox[1]+threshold, 0, bbox[3]-zero_division(bbox[3]-bbox[2],zlength)*i] for i in range(zlength+1)]
             elif firstScanBearing == 180:
-                print("180")
-                mappingPositions[0]=[bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold]
-                mappingPositions[1]=[bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2]
-                mappingPositions[2]=[bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold]
-                mappingPositions[3]=[bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2]
+                mappingPositions[0][:] = [[bbox[1]+threshold, 0, bbox[3]-zero_division(bbox[3]-bbox[2],zlength)*i] for i in range(zlength+1)]
+                mappingPositions[1][:] = [[bbox[1]-zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold] for i in range(xlength+1)]
+                mappingPositions[2][:] = [[bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i] for i in range(zlength+1)]
+                mappingPositions[3][:] = [[bbox[0]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[3]+threshold] for i in range(xlength+1)]
             elif firstScanBearing == 270:
-                print("270")
-                mappingPositions[0]=[bbox[1]+threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2]
-                mappingPositions[1]=[bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[2]-threshold]
-                mappingPositions[2]=[bbox[0]-threshold, 0, bbox[2]+(bbox[3]-bbox[2])/2]
-                mappingPositions[3]=[bbox[0]+(bbox[1]-bbox[0])/2, 0, bbox[3]+threshold]
+                mappingPositions[0][:] = [[bbox[0]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[3]+threshold] for i in range(xlength+1)]
+                mappingPositions[1][:] = [[bbox[1]+threshold, 0, bbox[3]-zero_division(bbox[3]-bbox[2],zlength)*i] for i in range(zlength+1)]
+                mappingPositions[2][:] = [[bbox[1]-zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold] for i in range(xlength+1)]
+                mappingPositions[3][:] = [[bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i] for i in range(zlength+1)]
             else:
-                print("bearing error")
-        else:
+                logging.info("Bearing error encountered whilst mapping feature {}"
+                            .format(featureNumber))
+            
+            # Save feature locations to file
+            with open(os.path.join(const.OUTPUT_PATH, str(featureNumber) + \
+                    'mapping_points' + str(edgeCounter) + str(scanCounter) + \
+                    '.xyz'), 'w', newline='') as outfile:
+                csvwriter = csv.writer(outfile)
+                for edge in mappingPositions:
+                    for point in edge:
+                        csvwriter.writerow(point)
+            
+            # Reset the BBox flag
             bboxFlag = False
 
-        print(mappingPositions)
+        # Check to see if the final scan has been completed for each edge
+        # If complete either prepare for the next scan or set the mappingFlag to end the loop        
+        if ((scanBearing == 90 or scanBearing == 270) and scanCounter == xlength+1) or \
+            ((scanBearing == 0 or scanBearing == 180) and scanCounter == zlength+1):
+            logging.info("Mapping of edge {} feature {} complete"
+                        .format(edgeCounter, featureNumber))
+            scanCounter = 0
+            edgeCounter +=1
+            if edgeCounter == 4:
+                logging.info("Mapping of feature {} complete"
+                            .format(featureNumber))
+                mappingFlag = False
+            else:    
+                currentPos, currentBearing, last_scan = nav_to_point(scanCounter, mappingPositions[edgeCounter][scanCounter], pioneer3at, False, currentPos, first_scan)
+                scanBearing = (scanBearing + 270) % 360
+                prepare_to_map(pioneer3at, scanBearing)
+        else:
+            currentPos, currentBearing, last_scan = nav_to_point(scanCounter, mappingPositions[edgeCounter][scanCounter], pioneer3at, False, currentPos, first_scan)
+            prepare_to_map(pioneer3at, scanBearing)
 
-        # Save feature locations to file
-        with open(os.path.join(const.OUTPUT_PATH,str(i)+'mapping_points_update' + str(k) + '.xyz'),
-                'w', newline='') as outfile:
-            csvwriter = csv.writer(outfile)
-            for row in mappingPositions:
-                csvwriter.writerow(row)
-        
-        currentPos, currentBearing, last_scan = nav_to_point(k, mappingPositions[k], pioneer3at, False, currentPos, first_scan)
-        scanBearing = (scanBearing + 270) % 360  
-        prepare_to_map(pioneer3at, scanBearing)
+def zero_division(n, d):
 
-    # NTS: once bbox is updated need to calc if there needs to be a change to mapping locations based on bbox dimensions and mappingdist
-    
-    # NTS: once mapping locations have been updated smoothly move to the next point using ET1's trajectory function and take a photo, then re-check the bbox and mappingdist and repat until return to starting location
+    return n / d if d else 0
 
 def getBraitenberg(robot, width, halfWidth):
 

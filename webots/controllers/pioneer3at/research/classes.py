@@ -1,8 +1,17 @@
 #!/usr/bin/python3
+
+'''
+    Classes required for the use of the pioneer3at
+    controller in webots.
+
+    Authors:    Josh Clough
+                Evan Thomas
+'''
 import logging
 import os
 import threading
 
+# Project specific functions
 import research.navigation as nav
 import research.constants as const
 import research.logger as log
