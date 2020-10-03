@@ -22,6 +22,7 @@ import research.clustering as clust
 import research.slam as slam
 import research.cubic_spline_planner as csp
 from research import pure_pursuit
+import research.eta3_spline_path as eta3
 
 def nav_to_point(i, target, pioneer3at, flag, startingPos, first_scan):
 
@@ -488,7 +489,7 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
                 # nav_to_point_PID(pioneer3at,
                 #                 x_goal = mappingPositions[edgeCounter][scanCounter][0],
                 #                 y_goal = mappingPositions[edgeCounter][scanCounter][2],
-                #                 theta_goal = 90)# NEED TO CHOOSE TARGET BEARING    
+                #                 theta_goal = np.radians(scanBearing), obstacle_detection = False)
                 currentPos, currentBearing, last_scan = nav_to_point(scanCounter, mappingPositions[edgeCounter][scanCounter], pioneer3at, False, currentPos, first_scan)
                 scanBearing = (scanBearing + 270) % 360
                 prepare_to_map(pioneer3at, scanBearing)
@@ -496,7 +497,7 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
                 # nav_to_point_PID(pioneer3at,
                 #                 x_goal = mappingPositions[edgeCounter][scanCounter][0],
                 #                 y_goal = mappingPositions[edgeCounter][scanCounter][2],
-                #                 theta_goal = 90)# NEED TO CHOOSE TARGET BEARING    
+                #                 theta_goal = np.radians(scanBearing), obstacle_detection = False)
             currentPos, currentBearing, last_scan = nav_to_point(scanCounter, mappingPositions[edgeCounter][scanCounter], pioneer3at, False, currentPos, first_scan)
             prepare_to_map(pioneer3at, scanBearing)
 
@@ -723,10 +724,10 @@ def nav_around_obstacle(pioneer3at):
                 speed_factor = (const.DECREASE_FACTOR * obstacle_values[2]) * (const.MAX_SPEED / obstacle_values[2])
                 left_speed = speed_factor * obstacle_values[0]
                 right_speed = speed_factor * obstacle_values[1]
-                set_velocity(pioneer3at.wheels, -right_speed, -left_speed)
+                set_velocity(pioneer3at.wheels, right_speed, left_speed)
 
         elif obstacle_values[2] > const.OBSTACLE_END_LIMIT:
-            set_velocity(pioneer3at.wheels, -const.MAX_SPEED, -const.MAX_SPEED)
+            set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
         # Sufficiently far away, return robot to full speed and return to program
         else:
 
@@ -734,23 +735,26 @@ def nav_around_obstacle(pioneer3at):
             logging.info("No obstacle")
             return obstacle_flag
 
-def nav_to_point_PID(pioneer3at, x_goal, y_goal, theta_goal):
+def nav_to_point_PID(pioneer3at, x_goal, y_goal, theta_goal, obstacle_detection = True):
     ''' Uses Pure Pursuit path tracking, refer to main() in pure_pursuit.py for original
         code.
     '''
     x_start = robot_position(pioneer3at.gps)[0]
     y_start = robot_position(pioneer3at.gps)[2]
-    theta_start = np.radians(robot_bearing(pioneer3at.imu) + const.TRAJPLANNING_BEARING_OFFSET)
+    theta_start = np.radians(robot_bearing(pioneer3at.imu))
 
     logging.info("Initial x: {:5.2f} m | y: {:5.2f} m | theta: {:5.2f} deg".format(x_start, y_start, np.degrees(theta_start)))
     logging.info("Goal    x: {:5.2f} m | y: {:5.2f} m | theta: {:5.2f} deg".format(x_goal, y_goal, np.degrees(theta_goal)))
     obstacle_flag = False
-    traj_list = move_to_pose(x_start, y_start, theta_start, x_goal, y_goal, theta_goal)
+    traj_list = plan_eta_3_curve(x_start, y_start, theta_start + np.radians(const.TRAJPLANNING_BEARING_OFFSET),
+                                 x_goal, y_goal, theta_goal + np.radians(const.TRAJPLANNING_BEARING_OFFSET))
+    # traj_list = move_to_pose(x_start, y_start, theta_start, x_goal, y_goal, theta_goal)
     cx = [point[0] for point in traj_list]
     cy = [point[2] for point in traj_list]
 
     dt = 1/pioneer3at.timestep  # [s] time tick
     show_animation = const.PP_SHOW_ANIMATION
+    show_velocity_animation = const.PP_SHOW_VELOCITY_ANIMATION
 
     #  target course
     target_speed = const.MAX_SPEED / 3.6  # [m/s]
@@ -775,7 +779,7 @@ def nav_to_point_PID(pioneer3at, x_goal, y_goal, theta_goal):
                                     pioneer3at.hkfBraitenbergCoefficients)
         if obstacle_values[2] > const.OBSTACLE_THRESHOLD:
             obstacle_flag = True
-        if obstacle_flag:
+        if obstacle_flag and obstacle_detection == True:
             logging.info("Found obstacle")
             return obstacle_flag, obstacle_values
 
@@ -789,16 +793,13 @@ def nav_to_point_PID(pioneer3at, x_goal, y_goal, theta_goal):
                                 v=get_velocity(pioneer3at.wheels), a=ai, delta=di)
 
         logging.debug("{:.2f} {:.2f}. x{:.2f} y{:.2f}".format(di, get_velocity(pioneer3at.wheels), robot_position(pioneer3at.gps)[0], robot_position(pioneer3at.gps)[2]))
+        if di < 0:
+            leftSpeed = const.MAX_SPEED - (abs(di) * const.PP_WEIGHT)
+            rightSpeed = const.MAX_SPEED
 
-        if di > 0:
-            set_velocity(pioneer3at.wheels,
-                        -const.MAX_SPEED + abs(di*5),
-                        -const.MAX_SPEED) # Right
-
-        elif di < 0:
-            set_velocity(pioneer3at.wheels,
-                        -const.MAX_SPEED, # Left
-                        -const.MAX_SPEED + abs(di*5))
+        elif di > 0:
+            leftSpeed = const.MAX_SPEED
+            rightSpeed = const.MAX_SPEED - (abs(di) * const.PP_WEIGHT)
 
         else:
             set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
@@ -824,7 +825,7 @@ def nav_to_point_PID(pioneer3at, x_goal, y_goal, theta_goal):
         # Test
     assert lastIndex >= target_ind, "Cannot goal"
 
-    if show_animation:  # pragma: no cover
+    if show_velocity_animation:  # pragma: no cover
         plt.cla()
         plt.plot(cx, cy, ".r", label="course")
         plt.plot(states.x, states.y, "-b", label="trajectory")
@@ -842,3 +843,44 @@ def nav_to_point_PID(pioneer3at, x_goal, y_goal, theta_goal):
         plt.show()
 
     return False, None
+
+def plan_eta_3_curve(x_start=0, y_start=0, theta_start=0,
+                 x_goal=8, y_goal=5, theta_goal=np.radians(180),
+                 eta_shape = 0):
+    ''' Builds a path for the pioneer3at.
+        Theta is radians
+    '''
+    show_animation = False
+    path_segments = []
+    # segment 1: lane-change curve
+    start_pose = [x_start, y_start, theta_start-const.ETA_OFFSET]
+    end_pose = [x_goal, y_goal, theta_goal-const.ETA_OFFSET]
+    # NOTE: The ordering on kappa is [kappa_A, kappad_A, kappa_B, kappad_B], with kappad_* being the curvature derivative
+    kappa = [0, 0, 0, 0]
+    eta = [0, 0, (eta_shape - 5) * 20, (5 - eta_shape) * 20, 0, 0]
+    path_segments.append(eta3.eta3_path_segment(
+        start_pose=start_pose, end_pose=end_pose, eta=eta, kappa=kappa))
+
+    path = eta3.eta3_path(path_segments)
+
+    # interpolate at several points along the path
+    ui = np.linspace(0, len(path_segments), 1001)
+    pos = np.empty((2, ui.size))
+    for j, u in enumerate(ui):
+        pos[:, j] = path.calc_path_point(u)
+    #print(pos.shape)
+    #print(list(pos[0]))
+    if show_animation:
+        # plot the path
+        plt.plot(pos[0, :], pos[1, :])
+        plt.pause(1.0)
+
+    if show_animation:
+        plt.close("all")
+
+    x_traj = list(pos[0])
+    y_traj = list(pos[1])
+
+    traj_list = [(x, 0, y) for x, y in zip(x_traj, y_traj)]
+
+    return traj_list

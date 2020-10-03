@@ -10,6 +10,7 @@
 
 import os
 import math
+import numpy as np
 
 # Define home location
 HOME_LOCATION = [0, 0, 0]
@@ -75,11 +76,13 @@ ANGULAR_NAV_THRESHOLD = 0.0001
 TRAJPLANNING_BEARING_OFFSET = -90
 
 # Pure Pursuit constants
-PP_K = 0.1 # look forward gain
-PP_LFC = 0.75  # [m] look-ahead distance
+PP_K = 0.01 # look forward gain
+PP_LFC = 0.6  # [m] look-ahead distance
 PP_KP = 0.5  # speed proportional gain
-PP_WB = 1.5  # [m] wheel base of vehicle
+PP_WB = 0.2  # [m] wheel base of vehicle
+PP_WEIGHT = 15
 PP_SHOW_ANIMATION = False
+PP_SHOW_VELOCITY_ANIMATION = False
 
 # Move to pose line fitting constants
 MTP_KP_RHO = 2 # 9
@@ -87,6 +90,9 @@ MTP_KP_ALPHA = 9 # 15
 MTP_KP_BETA = -3 # -3
 MTP_DT = 0.1 # 0.01
 MTP_PLOT = False # Plot the trajectory to screen
+
+# Eta^3 curve's theta origin is quite different to our world layout, correct with offset
+ETA_OFFSET = np.radians(-180)
 
 # Define the output filenames and paths
 COORDINATE_FILENAME = 'coordinates.json'
