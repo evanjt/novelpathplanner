@@ -9,15 +9,19 @@
 '''
 
 import math
+import time
 import os
 import logging
 import csv
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Project specific functions
 import research.constants as const
 import research.clustering as clust
 import research.slam as slam
+import research.cubic_spline_planner as csp
+from research import pure_pursuit
 
 def nav_to_point(i, target, pioneer3at, flag, startingPos, first_scan):
 
@@ -480,17 +484,31 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
                 logging.info("Mapping of feature {} complete"
                             .format(featureNumber+1))
                 mappingFlag = False
-            else:    
+            else:
+                # nav_to_point_PID(pioneer3at,
+                #                 x_goal = mappingPositions[edgeCounter][scanCounter][0],
+                #                 y_goal = mappingPositions[edgeCounter][scanCounter][2],
+                #                 theta_goal = 90)# NEED TO CHOOSE TARGET BEARING    
                 currentPos, currentBearing, last_scan = nav_to_point(scanCounter, mappingPositions[edgeCounter][scanCounter], pioneer3at, False, currentPos, first_scan)
                 scanBearing = (scanBearing + 270) % 360
                 prepare_to_map(pioneer3at, scanBearing)
         else:
+                # nav_to_point_PID(pioneer3at,
+                #                 x_goal = mappingPositions[edgeCounter][scanCounter][0],
+                #                 y_goal = mappingPositions[edgeCounter][scanCounter][2],
+                #                 theta_goal = 90)# NEED TO CHOOSE TARGET BEARING    
             currentPos, currentBearing, last_scan = nav_to_point(scanCounter, mappingPositions[edgeCounter][scanCounter], pioneer3at, False, currentPos, first_scan)
             prepare_to_map(pioneer3at, scanBearing)
 
 def zero_division(n, d):
 
     return n / d if d else 0
+
+def get_velocity(wheels):
+    left = abs((wheels[0].getVelocity() + wheels[2].getVelocity()))/2
+    right = abs((wheels[1].getVelocity() + wheels[3].getVelocity()))/2
+    #print((left+right)/2)
+    return -(left - right)
 
 def getBraitenberg(robot, width, halfWidth):
 
@@ -572,3 +590,255 @@ def xyDistance(pair1, pair2):
     displacement = pair1[0] - pair2[0], pair1[1] - pair2[1]
 
     return math.sqrt((displacement[0])**2 + (displacement[1])**2)
+
+def robot_speed_helper(max_speed, pid_correction):
+    out_speed = 1/pid_correction * max_speed
+    #out_speed = (360/abs(pid_correction))/(max_speed*max_speed)
+    #print(out_speed)
+    return min(out_speed, max_speed)
+
+def move_to_pose(x_start, y_start, theta_start, x_goal, y_goal, theta_goal):
+    """
+    rho is the distance between the robot and the goal position
+    alpha is the angle to the goal relative to the heading of the robot
+    beta is the angle between the robot's position and the goal position plus the goal angle
+
+    Kp_rho*rho and Kp_alpha*alpha drive the robot along a line towards the goal
+    Kp_beta*beta rotates the line so that it is parallel to the goal angle
+
+    Move to specified pose
+
+    Author: Daniel Ingram (daniel-s-ingram)
+            Atsushi Sakai(@Atsushi_twi)
+
+    P. I. Corke, "Robotics, Vision & Control", Springer 2017, ISBN 978-3-319-54413-7
+
+    """
+
+    def plot_vehicle(x, y, theta, x_traj, y_traj):  # pragma: no cover
+        # Corners of triangular vehicle when pointing to the right (0 radians)
+        p1_i = np.array([0.5, 0, 1]).T
+        p2_i = np.array([-0.5, 0.25, 1]).T
+        p3_i = np.array([-0.5, -0.25, 1]).T
+
+        T = transformation_matrix(x, y, theta)
+        p1 = np.matmul(T, p1_i)
+        p2 = np.matmul(T, p2_i)
+        p3 = np.matmul(T, p3_i)
+
+        plt.plot([p1[0], p2[0]], [p1[1], p2[1]], 'k-')
+        plt.plot([p2[0], p3[0]], [p2[1], p3[1]], 'k-')
+        plt.plot([p3[0], p1[0]], [p3[1], p1[1]], 'k-')
+
+        plt.plot(x_traj, y_traj, 'b--')
+
+        # for stopping simulation with the esc key.
+        plt.gcf().canvas.mpl_connect('key_release_event',
+                lambda event: [exit(0) if event.key == 'escape' else None])
+        print(min(x_traj), max(x_traj))
+        print(min(y_traj), max(y_traj))
+        #print(y_traj)
+        plt.xlim(min(x_traj)-1, max(x_traj)+1)
+        plt.ylim(min(y_traj)-1, max(y_traj)+1)
+
+        plt.pause(5)
+
+
+    def transformation_matrix(x, y, theta):
+        return np.array([
+            [np.cos(theta), -np.sin(theta), x],
+            [np.sin(theta), np.cos(theta), y],
+            [0, 0, 1]
+        ])
+
+    # Trajectory line fitting constants
+    Kp_rho = const.MTP_KP_RHO
+    Kp_alpha = const.MTP_KP_ALPHA
+    Kp_beta = const.MTP_KP_BETA
+    dt = const.MTP_DT
+
+    plot_trajectory = const.MTP_PLOT
+
+    x = x_start
+    y = y_start
+    theta = theta_start
+
+    x_diff = x_goal - x
+    y_diff = y_goal - y
+
+    x_traj, y_traj = [], []
+
+    rho = np.hypot(x_diff, y_diff)
+    while rho > 0.001: #0.001
+        x_traj.append(x)
+        y_traj.append(y)
+
+        x_diff = x_goal - x
+        y_diff = y_goal - y
+
+        # Restrict alpha and beta (angle differences) to the range
+        # [-pi, pi] to prevent unstable behavior e.g. difference going
+        # from 0 rad to 2*pi rad with slight turn
+
+        rho = np.hypot(x_diff, y_diff)
+        alpha = (np.arctan2(y_diff, x_diff)
+                 - theta + np.pi) % (2 * np.pi) - np.pi
+        beta = (theta_goal - theta - alpha + np.pi) % (2 * np.pi) - np.pi
+
+        v = Kp_rho * rho
+        w = Kp_alpha * alpha + Kp_beta * beta
+
+        if alpha > np.pi / 2 or alpha < -np.pi / 2:
+            v = -v
+
+        theta = theta + w * dt
+        x = x + v * np.cos(theta) * dt
+        y = y + v * np.sin(theta) * dt
+
+    if plot_trajectory:  # pragma: no cover
+        plt.cla()
+        plt.arrow(x_start, y_start, np.cos(theta_start),
+                    np.sin(theta_start), color='r', width=0.1)
+        plt.arrow(x_goal, y_goal, np.cos(theta_goal),
+                    np.sin(theta_goal), color='g', width=0.1)
+        plot_vehicle(x, y, theta, x_traj, y_traj)
+
+    traj_list = [(x, 0, y) for x, y in zip(x_traj, y_traj)]
+    return traj_list
+
+def nav_around_obstacle(pioneer3at):
+    ''' This function is called if there is an obstacle. It takes over
+        control of the robot and gets around the obstacle, when the threshold
+        is sufficiently low as set by a threshold, it returns.
+    '''
+
+    while pioneer3at.robot.step(pioneer3at.timestep) != -1:
+        obstacle_values = detect_obstacle(pioneer3at.robot, pioneer3at.hokuyoFront,
+                                    pioneer3at.hkfWidth, pioneer3at.hkfHalfWidth,
+                                    pioneer3at.hkfRangeThreshold, pioneer3at.hkfMaxRange,
+                                    pioneer3at.hkfBraitenbergCoefficients)
+        # If within obstacle, navigate around it
+        if obstacle_values[2] > (const.OBSTACLE_THRESHOLD - const.OBSTACLE_BUFFER):
+
+                speed_factor = (const.DECREASE_FACTOR * obstacle_values[2]) * (const.MAX_SPEED / obstacle_values[2])
+                left_speed = speed_factor * obstacle_values[0]
+                right_speed = speed_factor * obstacle_values[1]
+                set_velocity(pioneer3at.wheels, -right_speed, -left_speed)
+
+        elif obstacle_values[2] > const.OBSTACLE_END_LIMIT:
+            set_velocity(pioneer3at.wheels, -const.MAX_SPEED, -const.MAX_SPEED)
+        # Sufficiently far away, return robot to full speed and return to program
+        else:
+
+            obstacle_flag = False
+            logging.info("No obstacle")
+            return obstacle_flag
+
+def nav_to_point_PID(pioneer3at, x_goal, y_goal, theta_goal):
+    ''' Uses Pure Pursuit path tracking, refer to main() in pure_pursuit.py for original
+        code.
+    '''
+    x_start = robot_position(pioneer3at.gps)[0]
+    y_start = robot_position(pioneer3at.gps)[2]
+    theta_start = np.radians(robot_bearing(pioneer3at.imu) + const.TRAJPLANNING_BEARING_OFFSET)
+
+    logging.info("Initial x: {:5.2f} m | y: {:5.2f} m | theta: {:5.2f} deg".format(x_start, y_start, np.degrees(theta_start)))
+    logging.info("Goal    x: {:5.2f} m | y: {:5.2f} m | theta: {:5.2f} deg".format(x_goal, y_goal, np.degrees(theta_goal)))
+    obstacle_flag = False
+    traj_list = move_to_pose(x_start, y_start, theta_start, x_goal, y_goal, theta_goal)
+    cx = [point[0] for point in traj_list]
+    cy = [point[2] for point in traj_list]
+
+    dt = 1/pioneer3at.timestep  # [s] time tick
+    show_animation = const.PP_SHOW_ANIMATION
+
+    #  target course
+    target_speed = const.MAX_SPEED / 3.6  # [m/s]
+
+    # initial state
+    state = pure_pursuit.State(x=robot_position(pioneer3at.gps)[0],
+                    y=robot_position(pioneer3at.gps)[2],
+                    yaw=np.radians(robot_bearing(pioneer3at.imu) + const.TRAJPLANNING_BEARING_OFFSET),
+                    v=get_velocity(pioneer3at.wheels))
+
+    lastIndex = len(cx) - 1
+    time = 0.0
+    states = pure_pursuit.States()
+    states.append(time, state)
+    target_course = pure_pursuit.TargetCourse(cx, cy)
+    target_ind, _ = target_course.search_target_index(state)
+
+    while pioneer3at.robot.step(pioneer3at.timestep) != -1 and lastIndex > target_ind:
+        obstacle_values = detect_obstacle(pioneer3at.robot, pioneer3at.hokuyoFront,
+                                    pioneer3at.hkfWidth, pioneer3at.hkfHalfWidth,
+                                    pioneer3at.hkfRangeThreshold, pioneer3at.hkfMaxRange,
+                                    pioneer3at.hkfBraitenbergCoefficients)
+        if obstacle_values[2] > const.OBSTACLE_THRESHOLD:
+            obstacle_flag = True
+        if obstacle_flag:
+            logging.info("Found obstacle")
+            return obstacle_flag, obstacle_values
+
+        ai = pure_pursuit.proportional_control(target_speed, state.v)
+        di, target_ind = pure_pursuit.pure_pursuit_steer_control(
+            state, target_course, target_ind)
+
+        state.update_pioneer(x=robot_position(pioneer3at.gps)[0],
+                                y=robot_position(pioneer3at.gps)[2],
+                                yaw=np.radians(robot_bearing(pioneer3at.imu) + const.TRAJPLANNING_BEARING_OFFSET),
+                                v=get_velocity(pioneer3at.wheels), a=ai, delta=di)
+
+        logging.debug("{:.2f} {:.2f}. x{:.2f} y{:.2f}".format(di, get_velocity(pioneer3at.wheels), robot_position(pioneer3at.gps)[0], robot_position(pioneer3at.gps)[2]))
+
+        if di > 0:
+            set_velocity(pioneer3at.wheels,
+                        -const.MAX_SPEED + abs(di*5),
+                        -const.MAX_SPEED) # Right
+
+        elif di < 0:
+            set_velocity(pioneer3at.wheels,
+                        -const.MAX_SPEED, # Left
+                        -const.MAX_SPEED + abs(di*5))
+
+        else:
+            set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
+
+        time += dt
+        states.append(time, state)
+
+        if show_animation:  # pragma: no cover
+            plt.cla()
+            # for stopping simulation with the esc key.
+            plt.gcf().canvas.mpl_connect(
+                'key_release_event',
+                lambda event: [exit(0) if event.key == 'escape' else None])
+            pure_pursuit.plot_arrow(state.x, state.y, state.yaw)
+            plt.plot(cx, cy, "-r", label="course")
+            plt.plot(states.x, states.y, "-b", label="trajectory")
+            plt.plot(cx[target_ind], cy[target_ind], "xg", label="target")
+            plt.axis("equal")
+            plt.grid(True)
+            plt.title("Speed[km/h]:" + str(state.v * 3.6)[:4])
+            plt.pause(0.001)
+
+        # Test
+    assert lastIndex >= target_ind, "Cannot goal"
+
+    if show_animation:  # pragma: no cover
+        plt.cla()
+        plt.plot(cx, cy, ".r", label="course")
+        plt.plot(states.x, states.y, "-b", label="trajectory")
+        plt.legend()
+        plt.xlabel("x[m]")
+        plt.ylabel("y[m]")
+        plt.axis("equal")
+        plt.grid(True)
+
+        plt.subplots(1)
+        plt.plot(states.t, [iv * 3.6 for iv in states.v], "-r")
+        plt.xlabel("Time[s]")
+        plt.ylabel("Speed[km/h]")
+        plt.grid(True)
+        plt.show()
+
+    return False, None

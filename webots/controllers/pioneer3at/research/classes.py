@@ -86,3 +86,8 @@ class RobotDevice():
         self.thread = threading.Thread(target = log.worker,
                                        args = (self.gps, self.imu,)) # Send in GPS/IMU objects
         self.thread.start()
+
+    # End logging
+    def endLogging(self):
+        self.thread.do_run = False
+        self.thread.join()

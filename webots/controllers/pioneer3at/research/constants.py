@@ -68,6 +68,25 @@ LOOP_THRESHOLD = 2
 OBSTACLE_THRESHOLD = 0.1
 OBSTACLE_BUFFER = 0.05
 DECREASE_FACTOR = 0.9
+OBSTACLE_END_LIMIT = 0.08
+
+# Define trajectory parameters
+ANGULAR_NAV_THRESHOLD = 0.0001
+TRAJPLANNING_BEARING_OFFSET = -90
+
+# Pure Pursuit constants
+PP_K = 0.1 # look forward gain
+PP_LFC = 0.75  # [m] look-ahead distance
+PP_KP = 0.5  # speed proportional gain
+PP_WB = 1.5  # [m] wheel base of vehicle
+PP_SHOW_ANIMATION = False
+
+# Move to pose line fitting constants
+MTP_KP_RHO = 2 # 9
+MTP_KP_ALPHA = 9 # 15
+MTP_KP_BETA = -3 # -3
+MTP_DT = 0.1 # 0.01
+MTP_PLOT = False # Plot the trajectory to screen
 
 # Define the output filenames and paths
 COORDINATE_FILENAME = 'coordinates.json'
