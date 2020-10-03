@@ -15,7 +15,7 @@ import numpy as np
 # Define home location
 HOME_LOCATION = [0, 0, 0]
 
-# Define robot parameters 
+# Define robot parameters
 MAX_SPEED = 5.24
 
 # LiDAR parameters
@@ -43,7 +43,7 @@ DEVICE = 'lidar'
 # Define the required proximity (m) from a target point to be a successful navigation
 MAPPING_DISTANCE = 1
 
-# Deinfe the required buffer range (m) for mapping to occur  
+# Deinfe the required buffer range (m) for mapping to occur
 MAPPING_BUFFER = 0.5
 
 # Define feature detection threshold size (m)
@@ -63,7 +63,7 @@ ANGULAR_THRESHOLD = 1
 LOOP_THRESHOLD = 2
 
 # Define obstacle detection variables including:
-# -threshold distance before avoidance as a per the braitenburg coeffcient, 
+# -threshold distance before avoidance as a per the braitenburg coeffcient,
 # -buffer distance to avoid constant correction as a per the braitenburg coeffcient,
 # -speed decrease factor once an obstacle has been detected
 OBSTACLE_THRESHOLD = 0.2
@@ -73,7 +73,7 @@ OBSTACLE_END_LIMIT = 0.08
 
 # Define trajectory parameters
 ANGULAR_NAV_THRESHOLD = 0.0001
-TRAJPLANNING_BEARING_OFFSET = -90
+TRAJPLANNING_BEARING_OFFSET = 90
 
 # Pure Pursuit constants
 PP_K = 0.01 # look forward gain
@@ -81,7 +81,7 @@ PP_LFC = 0.6  # [m] look-ahead distance
 PP_KP = 0.5  # speed proportional gain
 PP_WB = 0.2  # [m] wheel base of vehicle
 PP_WEIGHT = 15
-PP_SHOW_ANIMATION = True
+PP_SHOW_ANIMATION = False
 PP_SHOW_VELOCITY_ANIMATION = False
 
 # Move to pose line fitting constants
