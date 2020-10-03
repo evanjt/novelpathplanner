@@ -9,6 +9,7 @@
 '''
 
 from controller import Robot
+import math
 import logging
 import os
 import numpy as np
@@ -65,17 +66,24 @@ while pioneer3at.robot.step(pioneer3at.timestep) != -1:
         logging.info("Heading to feature {} at: "
                      "{:.3f}x {:.3f}y {:.3f}z".format(i, *target[0]))
         logging.info("Along bearing: {:1f}".format(targetBearing))
-        flag = False
+        obstacle_flag = True # Initialise and test True for obstacle, nav_around_obstacle() will defeat this if false
+        while obstacle_flag:
+            obstacle_flag = nav.nav_around_obstacle(pioneer3at)
+            obstacle_flag, obstacle_values = nav.nav_to_point_PID(pioneer3at,
+                                                                  x_goal=target[0][0],
+                                                                  y_goal=target[0][2],
+                                                                  theta_goal=math.radians(target[1])) # Might not be the best goal?
 
         # Start navigation to a point
         # NTS: This uses the first scan each time, whereas it should use the last taken scan
         # which would have been captured in either lidar_mapping or camera_maping
         # an alternative method would be to return home after each feature is mapped to close the loop
         # or come up with another loop closure method
-        currentPos, currentBearing, lastScan = nav.nav_to_point(i, target[0],
-                                                      pioneer3at, flag,
-                                                      startingPos,
-                                                      first_scan)
+        # flag = False
+        # currentPos, currentBearing, lastScan = nav.nav_to_point(i, target[0],
+        #                                               pioneer3at, flag,
+        #                                               startingPos,
+        #                                               first_scan)
         if i==len(targets)-1:
             break
         else:
@@ -94,4 +102,5 @@ while pioneer3at.robot.step(pioneer3at.timestep) != -1:
     # After list is done, shutdown
     logging.info("Survey complete")
     nav.set_velocity(pioneer3at.wheels, 0, 0)
+    pioneer3at.endLogging()
     break
