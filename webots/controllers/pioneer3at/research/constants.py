@@ -66,7 +66,7 @@ LOOP_THRESHOLD = 2
 # -threshold distance before avoidance as a per the braitenburg coeffcient, 
 # -buffer distance to avoid constant correction as a per the braitenburg coeffcient,
 # -speed decrease factor once an obstacle has been detected
-OBSTACLE_THRESHOLD = 0.1
+OBSTACLE_THRESHOLD = 0.2
 OBSTACLE_BUFFER = 0.05
 DECREASE_FACTOR = 0.9
 OBSTACLE_END_LIMIT = 0.08
@@ -81,7 +81,7 @@ PP_LFC = 0.6  # [m] look-ahead distance
 PP_KP = 0.5  # speed proportional gain
 PP_WB = 0.2  # [m] wheel base of vehicle
 PP_WEIGHT = 15
-PP_SHOW_ANIMATION = False
+PP_SHOW_ANIMATION = True
 PP_SHOW_VELOCITY_ANIMATION = False
 
 # Move to pose line fitting constants

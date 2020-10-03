@@ -506,10 +506,11 @@ def zero_division(n, d):
     return n / d if d else 0
 
 def get_velocity(wheels):
+
     left = abs((wheels[0].getVelocity() + wheels[2].getVelocity()))/2
     right = abs((wheels[1].getVelocity() + wheels[3].getVelocity()))/2
-    #print((left+right)/2)
-    return -(left - right)
+
+    return (left - right)
 
 def getBraitenberg(robot, width, halfWidth):
 
@@ -545,7 +546,9 @@ def robot_bearing(imu):
 
 def target_bearing(current, target):
 
-    displacement = difference(current, target)
+    #NTS: ET1 changed this for traj, may have side affects
+    # displacement = difference(current, target)
+    displacement = difference(target, current)
     bearingToTarget = bearing(displacement)
 
     return bearingToTarget
@@ -802,7 +805,10 @@ def nav_to_point_PID(pioneer3at, x_goal, y_goal, theta_goal, obstacle_detection 
             rightSpeed = const.MAX_SPEED - (abs(di) * const.PP_WEIGHT)
 
         else:
-            set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
+            leftSpeed = const.MAX_SPEED
+            rightSpeed = const.MAX_SPEED
+        
+        set_velocity(pioneer3at.wheels, leftSpeed, rightSpeed)
 
         time += dt
         states.append(time, state)
