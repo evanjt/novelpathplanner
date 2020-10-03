@@ -24,7 +24,7 @@ from sklearn.neighbors import NearestNeighbors
 import research.constants as const
 import research.navigation as nav
 
-def get_targets(robot, timestep, lidar, location, point_array):
+def get_targets(robot, timestep, lidar, focalLength, location, point_array):
 
     # Before beginning survey scan surrounds, cluster the scene,
     # return clusters for feature mapping
@@ -41,7 +41,7 @@ def get_targets(robot, timestep, lidar, location, point_array):
     features = cluster_points(point_array)
 
     # Obtain the bbox of each cluster
-    # Due to differences between the world and the point cloud x=z and z=x
+    # Calculate the optimal mapping distance based on the cluster size
     for feature in features:
         xmax = max(feature, key=lambda x: x[0])[0]
         xmin = min(feature, key=lambda x: x[0])[0]
@@ -52,8 +52,30 @@ def get_targets(robot, timestep, lidar, location, point_array):
 
         bboxList.append([xmin, xmax, zmin, zmax])
 
-        mappingDist = (ymax+const.SCANNER_HEIGHT)/ \
-            math.tan(math.radians(const.VERTICAL_VOF))
+        bottomMappingDist = (const.SCANNER_HEIGHT)/ \
+            math.tan(math.radians(const.LIDAR_VERTICAL_VOF/2))
+        topMappingDist = (ymax)/ \
+            math.tan(math.radians(const.LIDAR_VERTICAL_VOF/2))
+        verticalDensityMappingDist = (1/math.sqrt(const.POINT_DENSITY))/ \
+            math.tan(math.radians(const.LIDAR_VERTICAL_VOF/const.LIDAR_VERTICAL_RESOLUTION)) 
+        horizontalDensityMappingDist = (1/math.sqrt(const.POINT_DENSITY))/ \
+            math.tan(math.radians(const.LIDAR_HORIZONTAL_FOV/const.LIDAR_HORIZONTAL_RESOLUTION))
+
+        
+        dataQualityLimit = min([verticalDensityMappingDist, horizontalDensityMappingDist])
+        
+        mappingDist = max([bottomMappingDist, topMappingDist])
+
+        if mappingDist > dataQualityLimit:
+            print("Error, poor mapping quality")
+
+        print(bottomMappingDist, topMappingDist,
+                            verticalDensityMappingDist, horizontalDensityMappingDist)
+
+        #camera
+        cameraMappingDist = (focalLength * (ymax+const.CAMERA_HEIGHT) * const.CAMERA_VERTICAL_RESOLUTION)/((const.CAMERA_VERTICAL_RESOLUTION-20) * const.CAMERA_HEIGHT)
+
+        print(cameraMappingDist)
 
         if const.DEVICE == "lidar":
             if (xmax - xmin) > (zmax - zmin) and zmax > const.HOME_LOCATION[2]:

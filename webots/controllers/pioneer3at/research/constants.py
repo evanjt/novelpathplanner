@@ -9,14 +9,31 @@
 '''
 
 import os
+import math
 
 # Define home location
 HOME_LOCATION = [0, 0, 0]
 
 # Define robot parameters 
 MAX_SPEED = 5.24
-VERTICAL_VOF = 45
+
+# LiDAR parameters
+LIDAR_VERTICAL_VOF = 90
+LIDAR_HORIZONTAL_FOV = 360
+LIDAR_VERTICAL_RESOLUTION = 180
+LIDAR_HORIZONTAL_RESOLUTION = 720
 SCANNER_HEIGHT = 0.5
+
+# Camera parameters
+CAMERA_HORIZONTAL_FOV = 66
+CAMERA_VERTICAL_RESOLUTION = 488
+CAMERA_HORIZONTAL_RESOLUTION = 648
+CAMERA_VERTICAL_VOF = math.degrees(2 * math.atan(math.tan(math.radians(CAMERA_HORIZONTAL_FOV) * 0.5) * (CAMERA_VERTICAL_RESOLUTION / CAMERA_HORIZONTAL_RESOLUTION)))
+CAMERA_HEIGHT = 0.2
+
+# Required point density per square meter
+POINT_DENSITY = 250
+PIXEL_DENSITY = 250
 
 # Define the mapping mode
 DEVICE = 'lidar'
@@ -32,7 +49,7 @@ MAPPING_BUFFER = 0.5
 FEATURE_THRESHOLD = 1
 
 # Define threshold distance (m) between taking lidar scans whilst mapping
-SCAN_THRESHOLD = 2
+SCAN_THRESHOLD = 5
 
 # Define threshold distance (m) between updating the bearing to target whilst navigating
 # When in SLAM mode this is also the threshold distance (m) between taking lidar scans whilst navigating

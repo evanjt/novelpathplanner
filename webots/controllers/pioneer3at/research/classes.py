@@ -48,9 +48,10 @@ class RobotDevice():
             self.hokuyoRear.enable(self.timestep)
             self.hokuyoRear.enablePointCloud()
 
-    def addCamera(self, cameraRangeID):
-        self.cameraRange = self.robot.getCamera(cameraRangeID)
-        self.cameraRange.enable(self.timestep)
+    def addCamera(self, cameraID):
+        self.camera = self.robot.getCamera(cameraID)
+        self.camera.enable(self.timestep)
+        self.focalLength = self.camera.getFocalLength()
     
     def addGPS(self, gpsID):
         self.gps = self.robot.getGPS(gpsID)

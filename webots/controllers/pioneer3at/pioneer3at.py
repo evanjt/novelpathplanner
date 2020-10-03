@@ -24,6 +24,7 @@ from research.classes import RobotDevice
 # Define robot and devices
 pioneer3at = RobotDevice(Robot())
 pioneer3at.addLidar('lidar', 'HokuyoFront')
+pioneer3at.addCamera('camera')
 pioneer3at.addGPS('gps')
 pioneer3at.addIMU('imu')
 pioneer3at.addWheels(['front left wheel', 'front right wheel',
@@ -43,6 +44,7 @@ clust.write_lidar_scene(first_scan)
 clusters, targets = clust.get_targets(pioneer3at.robot,
                             pioneer3at.timestep,
                             pioneer3at.lidar,
+                            pioneer3at.focalLength,
                             const.HOME_LOCATION,
                             np.array(first_scan.points))
 for ind, val in enumerate(clusters):

@@ -69,6 +69,9 @@ def nav_to_point(i, target, pioneer3at, flag, startingPos, first_scan):
 
             #####################################################################################
 
+        elif targetDistance > const.MAPPING_DISTANCE and obstacle[3] <= 1.5:
+            set_velocity(pioneer3at.wheels, const.MAX_SPEED, -const.MAX_SPEED)
+        
         elif targetDistance > const.MAPPING_DISTANCE and obstacle[2] > \
             const.OBSTACLE_THRESHOLD:
             speed_factor = (1.0 - (const.DECREASE_FACTOR * obstacle[2])) * \
@@ -115,6 +118,8 @@ def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold,
     # scan using the Hokuyo
     values = hokuyo.getRangeImage()
 
+    frontObstacle = values[math.floor(halfWidth)]
+
     # detect obstacle scores based on Braitenberg coefficients
     for k in range(math.floor(halfWidth)):
         if values[k] < rangeThreshold:
@@ -127,7 +132,7 @@ def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold,
             rightObstacle += braitenbergCoefficients[k] \
                                 * (1.0 - values[j] / maxRange)
 
-    return leftObstacle, rightObstacle, leftObstacle + rightObstacle
+    return leftObstacle, rightObstacle, leftObstacle + rightObstacle, frontObstacle
 
 def prepare_to_map(pioneer3at, targetBearing):
 
