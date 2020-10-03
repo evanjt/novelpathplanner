@@ -546,16 +546,18 @@ def robot_bearing(imu):
 
 def target_bearing(current, target):
 
-    #NTS: ET1 changed this for traj, may have side affects
-    # displacement = difference(current, target)
-    displacement = difference(target, current)
+    # NTS: ET1 changed this for traj, may have side affects
+    displacement = difference(current, target)
+    # displacement = difference(target, current)
     bearingToTarget = bearing(displacement)
 
     return bearingToTarget
 
 def target_distance(current, target):
 
-    displacement = difference(current, target)
+    # NTS: ET1 changed this for traj, may have side affects
+    displacement = difference(target, current)
+    # displacement = difference(current, target)
     distanceToTarget = distance(displacement)
 
     return distanceToTarget
@@ -582,7 +584,7 @@ def bearing(displacement):
 def distance(displacement):
 
     return math.sqrt((displacement[0])**2
-                     + (displacement[1])**2
+                     #+ (displacement[1])**2
                      + (displacement[2])**2)
 
 def elevation(displacement, dist):
@@ -594,12 +596,6 @@ def xyDistance(pair1, pair2):
     displacement = pair1[0] - pair2[0], pair1[1] - pair2[1]
 
     return math.sqrt((displacement[0])**2 + (displacement[1])**2)
-
-def robot_speed_helper(max_speed, pid_correction):
-    out_speed = 1/pid_correction * max_speed
-    #out_speed = (360/abs(pid_correction))/(max_speed*max_speed)
-    #print(out_speed)
-    return min(out_speed, max_speed)
 
 def move_to_pose(x_start, y_start, theta_start, x_goal, y_goal, theta_goal):
     """

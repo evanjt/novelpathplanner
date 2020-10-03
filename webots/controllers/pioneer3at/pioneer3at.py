@@ -72,7 +72,7 @@ while pioneer3at.robot.step(pioneer3at.timestep) != -1:
             obstacle_flag, obstacle_values = nav.nav_to_point_PID(pioneer3at,
                                                                   x_goal=target[0][0],
                                                                   y_goal=target[0][2],
-                                                                  theta_goal=math.radians(target[1])) # Might not be the best goal?
+                                                                  theta_goal=np.radians(target[1])) # Might not be the best goal?
 
         # Start navigation to a point
         # NTS: This uses the first scan each time, whereas it should use the last taken scan
