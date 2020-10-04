@@ -60,46 +60,30 @@ while pioneer3at.robot.step(pioneer3at.timestep) != -1:
     for i, target in enumerate(targets):
 
         # Calculate initial bearing to target feature
-        pioneer3at.robot.step(pioneer3at.timestep)
-        startingPos = nav.robot_position(pioneer3at.gps)
-        targetBearing = nav.target_bearing(startingPos, target[0])
         logging.info("Heading to feature {} at: "
                      "{:.3f}x {:.3f}y {:.3f}z".format(i, *target[0]))
-        logging.info("Along bearing: {:1f}".format(targetBearing))
-        obstacle_flag = True # Initialise and test True for obstacle, nav_around_obstacle() will defeat this if false
+        logging.info("Along bearing: {:1f}".format(nav.target_bearing(nav.robot_position(pioneer3at.gps),
+                                                                      target[0])))
+
+        obstacle_flag = True # Test obstacles before start
         while obstacle_flag:
             obstacle_flag = nav.nav_around_obstacle(pioneer3at)
             obstacle_flag, obstacle_values = nav.nav_to_point_PID(pioneer3at,
                                                                   x_goal=target[0][0],
                                                                   y_goal=target[0][2],
-                                                                  theta_goal=np.radians(target[1])) # Might not be the best goal?
+                                                                  theta_goal=np.radians(target[1]))
 
-        # Start navigation to a point
-        # NTS: This uses the first scan each time, whereas it should use the last taken scan
-        # which would have been captured in either lidar_mapping or camera_maping
-        # an alternative method would be to return home after each feature is mapped to close the loop
-        # or come up with another loop closure method
-        # flag = False
-        # currentPos, currentBearing, lastScan = nav.nav_to_point(i, target[0],
-        #                                               pioneer3at, flag,
-        #                                               startingPos,
-        #                                               first_scan)
-        if i==len(targets)-1:
-            break
-        else:
-            logging.info("Starting to map feature {} at: "
-                        "{:.3f}x {:.3f}y {:.3f}z".format(i, *currentPos))
-            nav.prepare_to_map(pioneer3at, target[1])
+        logging.info("Starting to map feature {} at: "
+                    "{:.3f}x {:.3f}y {:.3f}z".format(i, *nav.robot_position(pioneer3at.gps)))
 
-            # NTS: flag when areas of the feature have not been mapped
-            if const.DEVICE == 'lidar':
-                nav.lidar_mapping(pioneer3at, target, i,
-                    clust.convert_to_o3d(clusters[i]))
-            elif const.DEVICE == 'camera':
-                nav.camera_mapping(pioneer3at, target, i,
-                    clust.convert_to_o3d(clusters[i]))
+        nav.prepare_to_map(pioneer3at, target[1])
 
-    # After list is done, shutdown
+        if const.DEVICE == 'lidar':
+            nav.lidar_mapping(pioneer3at, target, i, clust.convert_to_o3d(clusters[i]))
+        elif const.DEVICE == 'camera':
+            nav.camera_mapping(pioneer3at, target, i, clust.convert_to_o3d(clusters[i]))
+
+    # All features mapped, shutdown
     logging.info("Survey complete")
     nav.set_velocity(pioneer3at.wheels, 0, 0)
     pioneer3at.endLogging()
