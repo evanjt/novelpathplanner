@@ -719,7 +719,6 @@ def nav_around_obstacle(pioneer3at):
             left_speed = speed_factor * obstacle_values[1]
             right_speed = speed_factor * obstacle_values[0]
             set_velocity(pioneer3at.wheels, right_speed, left_speed)
-            print("Obstacle", left_speed, right_speed)
 
         elif obstacle_values[2] > const.OBSTACLE_END_LIMIT:
             set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
