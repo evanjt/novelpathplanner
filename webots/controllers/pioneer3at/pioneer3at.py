@@ -38,10 +38,7 @@ pioneer3at.robot.step(pioneer3at.timestep)
 logging.info("Pioneer is scanning surrounding area for features")
 
 # Scan surrounding area and write the scan to file
-first_scan = clust.capture_lidar_scene(pioneer3at.robot,
-                            pioneer3at.timestep,
-                            pioneer3at.lidar,
-                            const.HOME_LOCATION, 0)
+first_scan = clust.capture_lidar_scene(pioneer3at, const.HOME_LOCATION, 0)
 clust.write_lidar_scene(first_scan)
 
 # Identify features from the initial scan and write to file
@@ -59,7 +56,7 @@ for ind, val in enumerate(clusters):
 logging.info("{} features found -- Beginning survey".format(len(targets)-1))
 
 # Loop through the detected target features
-# Navigate to and map each target feature whilst avoiding obstacles 
+# Navigate to and map each target feature whilst avoiding obstacles
 while pioneer3at.robot.step(pioneer3at.timestep) != -1:
     for i, target in enumerate(targets):
 

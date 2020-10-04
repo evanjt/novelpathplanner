@@ -74,10 +74,7 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
 
     # Capture a new scan, rotate based on first scan, and write to file
     logging.debug("Acquiring LiDAR scan ...")
-    scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
-                                            pioneer3at.lidar, currentPos,
-                                            currentBearing,
-                                            scan='feature', threshold=threshold)
+    scan = clust.capture_lidar_scene(pioneer3at, scan='feature', threshold=threshold)
 
     # 4D Transformation method using gps and imu for georeferencing scans
     T = np.eye(4)
@@ -92,6 +89,7 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
     lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
                                         'lidar_feature' + str(i+1) + 'scan' + str(counter+1) + '.xyz')
     clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
+    pioneer3at.last_feature_points = transformed_scan
 
     # Set the last_scan variable to the last transformed scan and set lastScanpos
     counter+=1
@@ -115,12 +113,9 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
             const.SCAN_THRESHOLD:
 
             logging.debug("Acquiring LiDAR scan ...")
-            
+
             # Capture a new scan
-            scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
-                                                    pioneer3at.lidar, currentPos,
-                                                    currentBearing,
-                                                    scan='feature', threshold=threshold)
+            scan = clust.capture_lidar_scene(pioneer3at, scan='feature', threshold=threshold)
 
             # 4D Transformation method using gps and imu for georeferencing scans
             T = np.eye(4)
@@ -135,6 +130,7 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
             lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
                                                 'lidar_feature' + str(i+1) + 'scan' + str(counter+1) + '.xyz')
             clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
+            pioneer3at.last_feature_points = transformed_scan
 
             # Set the last_scan variable to the last transformed scan and set lastScanpos
             lastScanPos = currentPos
@@ -228,13 +224,9 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
         currentBearing = robot_bearing(pioneer3at.imu)
 
         logging.debug("Acquiring LiDAR scan ...")
-        
-        # Capture a new scan
-        scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
-                                                pioneer3at.lidar, currentPos,
-                                                currentBearing,
-                                                scan='feature', threshold=threshold)
 
+        # Capture a new scan
+        scan = clust.capture_lidar_scene(pioneer3at, scan='feature', threshold=threshold)
         # 4D Transformation method using gps and imu for georeferencing scans
         T = np.eye(4)
         axisRotation = np.deg2rad((180 - currentBearing + 360) % 360)
@@ -253,9 +245,10 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
                                             'scan' + str(edgeCounter+1) + str(scanCounter+1) + \
                                             '.xyz')
         clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
+        pioneer3at.last_feature_points = transformed_scan
 
         logging.debug("Clustering LiDAR scan ...")
-        
+
         # Detect features/clusters within the transformed lidar scan
         features = clust.cluster_points(np.array(transformed_scan.points))
 

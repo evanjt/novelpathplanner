@@ -37,8 +37,8 @@ POINT_DENSITY = 250
 PIXEL_DENSITY = 250
 
 # Define the mapping mode
-DEVICE = 'lidar'
-#DEVICE = 'camera'
+#DEVICE = 'lidar'
+DEVICE = 'camera'
 
 # Define the required proximity (m) from a target point to be a successful navigation
 MAPPING_DISTANCE = 1
