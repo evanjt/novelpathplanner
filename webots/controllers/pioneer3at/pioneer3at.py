@@ -35,13 +35,16 @@ pioneer3at.startLogging()
 # Take the first simulation step
 pioneer3at.robot.step(pioneer3at.timestep)
 
-# Scan surrounding area and detect targets for mapping
 logging.info("Pioneer is scanning surrounding area for features")
+
+# Scan surrounding area and write the scan to file
 first_scan = clust.capture_lidar_scene(pioneer3at.robot,
                             pioneer3at.timestep,
                             pioneer3at.lidar,
                             const.HOME_LOCATION, 0)
 clust.write_lidar_scene(first_scan)
+
+# Identify features from the initial scan and write to file
 clusters, targets = clust.get_targets(pioneer3at.robot,
                             pioneer3at.timestep,
                             pioneer3at.lidar,
@@ -52,18 +55,15 @@ for ind, val in enumerate(clusters):
     clust.write_lidar_scene(clust.convert_to_o3d(val), method='w',
                             path=os.path.join(const.OUTPUT_PATH,
                                               'cluster'+str(ind)+'.xyz'))
-log.write_featurepoints(targets, pioneer3at.gps, pioneer3at.imu)
+
 logging.info("{} features found -- Beginning survey".format(len(targets)-1))
 
 # Loop through the detected target features
+# Navigate to and map each target feature whilst avoiding obstacles 
 while pioneer3at.robot.step(pioneer3at.timestep) != -1:
     for i, target in enumerate(targets):
 
-        # Calculate initial bearing to target feature
-        logging.info("Heading to feature {} at: "
-                     "{:.3f}x {:.3f}y {:.3f}z".format(i, *target[0]))
-        logging.info("Along bearing: {:1f}".format(nav.target_bearing(nav.robot_position(pioneer3at.gps),
-                                                                      target[0])))
+        logging.info("Heading to feature {}".format(i+1))
 
         obstacle_flag = True # Test obstacles before start
         while obstacle_flag:
@@ -73,8 +73,7 @@ while pioneer3at.robot.step(pioneer3at.timestep) != -1:
                                                                   y_goal=target[0][2],
                                                                   theta_goal=np.radians(target[1]))
 
-        logging.info("Starting to map feature {} at: "
-                    "{:.3f}x {:.3f}y {:.3f}z".format(i, *nav.robot_position(pioneer3at.gps)))
+        logging.info("Starting to map feature {}".format(i+1))
 
         if i==len(targets)-1:
             break # End if at last position
