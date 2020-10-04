@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+
 '''
     Code related to clustering methods for the use of the pioneer3at
     controller in webots.
@@ -15,31 +16,32 @@ import numpy as np
 import math
 import tsp
 from sklearn.cluster import DBSCAN
-import research.constants as const
-import research.navigation as nav
 from sklearn.metrics.pairwise import euclidean_distances
 import open3d as o3d
+from sklearn.neighbors import NearestNeighbors
 
-def get_targets(robot, timestep, lidar, location):
+# Project specific functions
+import research.constants as const
+import research.navigation as nav
+
+def get_targets(robot, timestep, lidar, focalLength, location, point_array):
 
     # Before beginning survey scan surrounds, cluster the scene,
     # return clusters for feature mapping
 
+    bboxList = []
     mappingDists = []
     bearingList = []
     featureList = []
     targets = []
-
-    # Capture lidar scene and identify features
-    logging.debug("Acquiring LiDAR scan ...")
-    point_array = capture_lidar_scene(robot, lidar, timestep, location, 0)
+    clusters = []
 
     # Detect features/clusters within lidar scene
     logging.debug("Clustering LiDAR scan ...")
     features = cluster_points(point_array)
 
-    # Obtain the centroid of each cluster
-    # Due to differences between the world and the point cloud x=z and z=x
+    # Obtain the bbox of each cluster
+    # Calculate the optimal mapping distance based on the cluster size
     for feature in features:
         xmax = max(feature, key=lambda x: x[0])[0]
         xmin = min(feature, key=lambda x: x[0])[0]
@@ -48,25 +50,65 @@ def get_targets(robot, timestep, lidar, location):
         zmax = max(feature, key=lambda x: x[2])[2]
         zmin = min(feature, key=lambda x: x[2])[2]
 
-        mappingDist = (ymax+const.SCANNER_HEIGHT)/ \
-            math.tan(math.radians(const.VERTICAL_VOF))
+        bboxList.append([xmin, xmax, zmin, zmax])
 
-        if (xmax - xmin) > (zmax - zmin) and zmax > const.HOME_LOCATION[2]:
-            bearingList.append(90)
-            featureList.append([xmin+(xmax-xmin)/2, zmin-mappingDist])
-            mappingDists.append(mappingDist)
-        elif (xmax - xmin) > (zmax - zmin) and zmax < const.HOME_LOCATION[2]:
-            bearingList.append(270)
-            featureList.append([xmin+(xmax-xmin)/2, zmax+mappingDist])
-            mappingDists.append(mappingDist)
-        elif (zmax - zmin) > (xmax - xmin) and xmax > const.HOME_LOCATION[0]:
-            bearingList.append(0)
-            featureList.append([xmin-mappingDist, zmin+(zmax-zmin)/2])
-            mappingDists.append(mappingDist)
-        else:
-            bearingList.append(180)
-            featureList.append([xmax+mappingDist, zmin+(zmax-zmin)/2])
-            mappingDists.append(mappingDist)
+        bottomMappingDist = (const.SCANNER_HEIGHT)/ \
+            math.tan(math.radians(const.LIDAR_VERTICAL_VOF/2))
+        topMappingDist = (ymax)/ \
+            math.tan(math.radians(const.LIDAR_VERTICAL_VOF/2))
+        verticalDensityMappingDist = (1/math.sqrt(const.POINT_DENSITY))/ \
+            math.tan(math.radians(const.LIDAR_VERTICAL_VOF/const.LIDAR_VERTICAL_RESOLUTION)) 
+        horizontalDensityMappingDist = (1/math.sqrt(const.POINT_DENSITY))/ \
+            math.tan(math.radians(const.LIDAR_HORIZONTAL_FOV/const.LIDAR_HORIZONTAL_RESOLUTION))
+
+        
+        dataQualityLimit = min([verticalDensityMappingDist, horizontalDensityMappingDist])
+        
+        mappingDist = max([bottomMappingDist, topMappingDist])
+
+        if mappingDist > dataQualityLimit:
+            print("Error, poor mapping quality")
+
+        if mappingDist < 3 and dataQualityLimit > 3:
+            mappingDist = 3 
+        
+        #camera
+        cameraMappingDist = (focalLength * (ymax+const.CAMERA_HEIGHT) * const.CAMERA_VERTICAL_RESOLUTION)/((const.CAMERA_VERTICAL_RESOLUTION-20) * const.CAMERA_HEIGHT)
+
+        if const.DEVICE == "lidar":
+            if (xmax - xmin) > (zmax - zmin) and zmax > const.HOME_LOCATION[2]:
+                bearingList.append(90)
+                featureList.append([xmin+(xmax-xmin)/2, zmin-mappingDist])
+                mappingDists.append(mappingDist)
+            elif (xmax - xmin) > (zmax - zmin) and zmax < const.HOME_LOCATION[2]:
+                bearingList.append(270)
+                featureList.append([xmin+(xmax-xmin)/2, zmax+mappingDist])
+                mappingDists.append(mappingDist)
+            elif (zmax - zmin) > (xmax - xmin) and xmax > const.HOME_LOCATION[0]:
+                bearingList.append(0)
+                featureList.append([xmin-mappingDist, zmin+(zmax-zmin)/2])
+                mappingDists.append(mappingDist)
+            else:
+                bearingList.append(180)
+                featureList.append([xmax+mappingDist, zmin+(zmax-zmin)/2])
+                mappingDists.append(mappingDist)
+        if const.DEVICE == "camera":
+            if (xmax - xmin) > (zmax - zmin) and zmax > const.HOME_LOCATION[2]:
+                bearingList.append(0)
+                featureList.append([xmax, zmin-mappingDist])
+                mappingDists.append(mappingDist)
+            elif (xmax - xmin) > (zmax - zmin) and zmax < const.HOME_LOCATION[2]:
+                bearingList.append(180)
+                featureList.append([xmin, zmax+mappingDist])
+                mappingDists.append(mappingDist)
+            elif (zmax - zmin) > (xmax - xmin) and xmax > const.HOME_LOCATION[0]:
+                bearingList.append(270)
+                featureList.append([xmin-mappingDist, zmin])
+                mappingDists.append(mappingDist)
+            else:
+                bearingList.append(90)
+                featureList.append([xmax+mappingDist, zmax])
+                mappingDists.append(mappingDist)
 
     # Add 2D home coordinates as a feature and calculate tsp route
     # Disable tsp stdout
@@ -80,70 +122,70 @@ def get_targets(robot, timestep, lidar, location):
 
     # Re-order features based on tsp, add Y coordinate,
     # and add home as last feature
+    bboxList.insert(0,0)
     bearingList.insert(0,0)
     mappingDists.insert(0,0)
     targets.append([const.HOME_LOCATION, 0])
+    features.insert(0,0)
+
     for ind, val in enumerate(t[1]):
         featureList[val].insert(1,0)
-        targets.insert(ind, [featureList[val], bearingList[val], mappingDists[val]])
+        clusters.insert(ind,features[val])
+        targets.insert(ind, [featureList[val], bearingList[val], \
+            mappingDists[val], bboxList[val]])
 
     # Save feature locations to file
-    with open(os.path.join(const.OUTPUT_PATH,'features.csv'),
+    with open(os.path.join(const.OUTPUT_PATH,'features.xyz'),
               'w', newline='') as outfile:
         csvwriter = csv.writer(outfile)
         for i in targets[1:]:
             csvwriter.writerow(i[0])
 
-    return targets[1:]
+    return clusters[1:], targets[1:]
 
-def capture_lidar_scene(robot, lidar_device, timestep, location, bearing,
-                        path=os.path.join(const.OUTPUT_PATH, 'points.xyz'),
+def capture_lidar_scene(robot, timestep, lidar_device, location, bearing,
                         method='w', scan='full', threshold=20):
 
     point_list = []
 
-    # Capture lidar points in a csv
-    with open(path, method, newline='') as outfile:
-        csvwriter = csv.writer(outfile)
+    # Capture lidar data
+    robot.step(timestep)
+    cloud = lidar_device.getPointCloud()
 
-        # Due to lidar intricacies every fifth step yields a full scan
-        # NTS: Will this ensure the correct point cloud is returned every time?
-        for i in range(5):
-            robot.step(timestep)
-            cloud = lidar_device.getPointCloud()
+    # Filter the lidar point cloud
+    for row in cloud:
 
-        # Filter the lidar point cloud
-        for row in cloud:
+        distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
 
-            distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
-
-            if scan == 'feature':
-                if row.y > -0.5 and row.y < 5 \
-                    and row.x < 0 and row.z < 5 and row.z > -5 \
-                    and distance < threshold + 5:
-                    point_list.append((row.x, row.y, row.z))
-            else:
-                if row.y > -0.5 and row.y < 5 and distance < threshold + 5:
-                    csvwriter.writerow([row.x, row.y, row.z])
-                    point_list.append((row.x, row.y, row.z))
-
-        #print(nav.difference(location, const.HOME_LOCATION))
-        #print(bearing)
-
-        # Read scan data into point cloud type, translate and rotate it
         if scan == 'feature':
-            xyz = np.array(point_list)
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(xyz)
-            pcd.translate(nav.difference(location, const.HOME_LOCATION))
-            R = pcd.get_rotation_matrix_from_axis_angle(np.array([0,bearing,0]))
-            #print(R)
-            pcd.rotate(R, const.HOME_LOCATION)
-            np.savetxt(outfile, pcd.points, delimiter=",")
+            if row.y > -0.4 and row.y < 4 \
+                and row.z < 0 and row.x < 4 and row.x > -4 \
+                and distance < threshold + 4:
+                point_list.append((row.x, row.y, row.z))
+        else:
+            if row.y > -0.4 and row.y < 4 and distance < threshold + 4:
+                point_list.append((row.x, row.y, row.z))
 
     logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
 
-    return np.array(point_list)
+    return convert_to_o3d(point_list)
+
+def convert_to_o3d(point_list):
+
+    # Convert points to open 3D point cloud
+    xyz = filter_points(np.array(point_list))
+
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(xyz)
+
+    return pcd
+
+def write_lidar_scene(pcd, method='w',
+                    path=os.path.join(const.OUTPUT_PATH, 'points.xyz')):
+
+    # Write pointcloud to file
+    with open(path, method, newline='') as outfile:
+        np.savetxt(outfile, pcd.points, delimiter=",")
 
 def cluster_points(array):
 
@@ -165,7 +207,6 @@ def cluster_points(array):
             z = z.reshape(-1,1)
             clusters.append(np.hstack((x, y, z)).tolist())
 
-            # NTS: need better hueristic to id what clusters are features
             xdist = max(clusters[cluster][0]) - min(clusters[cluster][0])
             zdist = max(clusters[cluster][2]) - min(clusters[cluster][2])
 
@@ -173,11 +214,18 @@ def cluster_points(array):
                 or zdist > const.FEATURE_THRESHOLD:
                 features.append(clusters[cluster])
 
-                # Print clusters to individual files
-                # path=os.path.join(const.OUTPUT_PATH,  str(cluster)+'.xyz')
-                # with open(path, 'w', newline='') as outfile:
-                #     csvwriter = csv.writer(outfile)
-                #     for row in clusters[cluster]:
-                #         csvwriter.writerow(row)
-
     return features
+
+def filter_points(df, k=50, threshold=1):
+
+    # Nearest neighbours outlier setup
+    knn = NearestNeighbors(n_neighbors=k)
+    knn.fit(df)
+    neighbors_and_distances = knn.kneighbors(df)
+    knn_distances = neighbors_and_distances[0]
+    neighbors = neighbors_and_distances[1]
+    kth_distance = [x[-1] for x in knn_distances]
+    tnn_distance = np.mean(knn_distances, axis=1)
+
+
+    return df[abs(tnn_distance - np.mean(tnn_distance)) < threshold * np.std(tnn_distance)]
