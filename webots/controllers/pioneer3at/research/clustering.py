@@ -26,9 +26,6 @@ import research.navigation as nav
 
 def get_targets(robot, timestep, lidar, focalLength, location, point_array):
 
-    # Before beginning survey scan surrounds, cluster the scene,
-    # return clusters for feature mapping
-
     bboxList = []
     mappingDists = []
     bearingList = []
@@ -36,8 +33,9 @@ def get_targets(robot, timestep, lidar, focalLength, location, point_array):
     targets = []
     clusters = []
 
-    # Detect features/clusters within lidar scene
     logging.debug("Clustering LiDAR scan ...")
+    
+    # Detect features/clusters within lidar scene
     features = cluster_points(point_array)
 
     # Obtain the bbox of each cluster
@@ -46,7 +44,6 @@ def get_targets(robot, timestep, lidar, focalLength, location, point_array):
         xmax = max(feature, key=lambda x: x[0])[0]
         xmin = min(feature, key=lambda x: x[0])[0]
         ymax = max(feature, key=lambda x: x[1])[1]
-        # ymin = min(feature, key=lambda x: x[1])[1]
         zmax = max(feature, key=lambda x: x[2])[2]
         zmin = min(feature, key=lambda x: x[2])[2]
 
@@ -157,7 +154,12 @@ def capture_lidar_scene(robot, timestep, lidar_device, location, bearing,
 
         distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
 
-        if scan == 'feature':
+        if scan == 'feature' and const.DEVICE == 'lidar':
+            if row.y > -0.4 and row.y < 4 \
+                and row.x < 0 and row.z < 4 and row.z > -4 \
+                and distance < threshold + 4:
+                point_list.append((row.x, row.y, row.z))
+        elif scan == 'feature' and const.DEVICE == 'camera':
             if row.y > -0.4 and row.y < 4 \
                 and row.z < 0 and row.x < 4 and row.x > -4 \
                 and distance < threshold + 4:
@@ -172,7 +174,7 @@ def capture_lidar_scene(robot, timestep, lidar_device, location, bearing,
 
 def convert_to_o3d(point_list):
 
-    # Convert points to open 3D point cloud
+    # Filter and convert points to open 3D point cloud
     xyz = filter_points(np.array(point_list))
 
     pcd = o3d.geometry.PointCloud()

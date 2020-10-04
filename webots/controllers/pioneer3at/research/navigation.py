@@ -19,113 +19,23 @@ import matplotlib.pyplot as plt
 # Project specific functions
 import research.constants as const
 import research.clustering as clust
-import research.slam as slam
-import research.cubic_spline_planner as csp
 from research import pure_pursuit
 import research.eta3_spline_path as eta3
-
-def nav_to_point(i, target, pioneer3at, flag, startingPos, first_scan):
-
-    # Set the last_scan variable to first lidar scan
-    last_scan = first_scan
-    counter = 0
-
-    # calc bearing to target
-    targetBearing = target_bearing(startingPos, target)
-
-    # Navigate robot to the feature
-    while pioneer3at.robot.step(pioneer3at.timestep) != -1:
-
-        # Continually calculate and update robot position,
-        # bearing and distance to target feature
-        currentPos = robot_position(pioneer3at.gps)
-        currentBearing = robot_bearing(pioneer3at.imu)
-        targetDistance = target_distance(currentPos, target)
-
-        # Continually detect obstacles
-        obstacle = detect_obstacle(pioneer3at.robot, pioneer3at.hokuyoFront,
-                                   pioneer3at.hkfWidth, pioneer3at.hkfHalfWidth,
-                                   pioneer3at.hkfRangeThreshold, pioneer3at.hkfMaxRange,
-                                   pioneer3at.hkfBraitenbergCoefficients)
-
-        # Once within range map the feature, stop once returned home
-        if target_distance(startingPos, currentPos) > \
-            const.MOVEMENT_THRESHOLD:
-
-            # Set new startinPos and reset targetBearing
-            targetBearing = target_bearing(currentPos, target)
-            startingPos = currentPos
-
-            # The below code can be commented out to avoid additional scans at a set interval###
-            # Capture a new scan, rotate based on first scan, and write to file
-            # logging.debug("Acquiring LiDAR scan ...")
-            # scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
-            #                                         pioneer3at.lidar, currentPos,
-            #                                         currentBearing)
-            #                                         # , scan='feature', threshold=threshold)
-            # transformed_scan = slam.rotate_scan(last_scan, scan)
-            # lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
-            #                                     'nav2feature' + str(i) + 'scan' + str(counter) + '.xyz')
-            # clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
-
-            # # Set the last_scan variable to the last transformed scan
-            # last_scan = transformed_scan
-            # counter +=1
-
-            #####################################################################################
-
-        elif targetDistance > const.MAPPING_DISTANCE and obstacle[3] <= 1.5:
-            set_velocity(pioneer3at.wheels, const.MAX_SPEED, -const.MAX_SPEED)
-
-        elif targetDistance > const.MAPPING_DISTANCE and obstacle[2] > \
-            const.OBSTACLE_THRESHOLD:
-            speed_factor = (1.0 - (const.DECREASE_FACTOR * obstacle[2])) * \
-                                            (const.MAX_SPEED / obstacle[2])
-            set_velocity(pioneer3at.wheels, speed_factor * obstacle[0],
-                             speed_factor * obstacle[1])
-
-        elif targetDistance > const.MAPPING_DISTANCE \
-                and obstacle[2] > const.OBSTACLE_THRESHOLD-0.05:
-            set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
-            flag = False
-
-        elif flag == False:
-            targetBearing = target_bearing(currentPos, target)
-            flag = True
-
-        elif targetDistance > const.MAPPING_DISTANCE \
-                and abs(targetBearing - currentBearing) >= const.ANGULAR_THRESHOLD \
-                and (targetBearing - currentBearing + 360) % 360 >= 180 + const.ANGULAR_THRESHOLD:
-            set_velocity(pioneer3at.wheels, const.MAX_SPEED*0.5, const.MAX_SPEED)
-
-        elif targetDistance > const.MAPPING_DISTANCE \
-                and abs(targetBearing - currentBearing) >= const.ANGULAR_THRESHOLD \
-                and (targetBearing - currentBearing + 360) % 360 < 180 - const.ANGULAR_THRESHOLD:
-            set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED*0.5)
-
-        elif targetDistance > const.MAPPING_DISTANCE \
-                and abs(targetBearing - currentBearing) >= const.ANGULAR_THRESHOLD:
-            set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED*0.5)
-
-        elif targetDistance > const.MAPPING_DISTANCE:
-            set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
-
-        else:
-            return currentPos, currentBearing, last_scan
 
 def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold,
                     maxRange, braitenbergCoefficients):
 
-    # set obstacle counters
+    # Set obstacle counters
     leftObstacle = 0.0
     rightObstacle = 0.0
 
-    # scan using the Hokuyo
+    # Scan using the Hokuyo
     values = hokuyo.getRangeImage()
 
+    # Detect obstacle directly in front of the robot
     frontObstacle = values[math.floor(halfWidth)]
 
-    # detect obstacle scores based on Braitenberg coefficients
+    # Detect obstacle scores based on Braitenberg coefficients
     for k in range(math.floor(halfWidth)):
         if values[k] < rangeThreshold:
             leftObstacle += braitenbergCoefficients[k] \
@@ -139,36 +49,10 @@ def detect_obstacle(robot, hokuyo, width, halfWidth, rangeThreshold,
 
     return leftObstacle, rightObstacle, leftObstacle + rightObstacle, frontObstacle
 
-def prepare_to_map(pioneer3at, targetBearing):
-
-    # Loop for rotating the robot side on with the feature
-    while pioneer3at.robot.step(pioneer3at.timestep) != -1:
-
-        # Continually calculate and update robot bearing
-        currentBearing = robot_bearing(pioneer3at.imu)
-
-        # Move the robot until side on with the target feature
-        # Once side on mark the startingposition of the feature mapping
-        if abs(targetBearing - currentBearing) > const.ANGULAR_THRESHOLD \
-                and (targetBearing - currentBearing + 360) % 360 >= 180 + const.ANGULAR_THRESHOLD:
-            set_velocity(pioneer3at.wheels, -0.25*const.MAX_SPEED, 0.25*const.MAX_SPEED)
-        elif abs(targetBearing - currentBearing) > const.ANGULAR_THRESHOLD \
-                and (targetBearing - currentBearing + 360) % 360 <= 180 - const.ANGULAR_THRESHOLD:
-            set_velocity(pioneer3at.wheels, 0.25*const.MAX_SPEED, -0.25*const.MAX_SPEED)
-        elif abs(targetBearing - currentBearing) > const.ANGULAR_THRESHOLD:
-            set_velocity(pioneer3at.wheels, 0.25*const.MAX_SPEED, -0.25*const.MAX_SPEED)
-        else:
-            set_velocity(pioneer3at.wheels, 0, 0)
-            return
-
-# NTS: need to improve mapping, use front sensor to avoid nothing loop
 def lidar_mapping(pioneer3at, target, i, first_scan):
 
     # Define the mapping optimal mapping distance as a new variable
     threshold = target[2]
-
-    #Unused SLAM variable
-    #last_scan = first_scan
 
     # Identify which scan lines to use and calculate thresholds
     front = round(pioneer3at.hkfWidth/2)
@@ -195,7 +79,6 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
                                             currentBearing,
                                             scan='feature', threshold=threshold)
 
-
     # 4D Transformation method using gps and imu for georeferencing scans
     T = np.eye(4)
     axisRotation = np.deg2rad((180 - currentBearing + 360) % 360)
@@ -205,10 +88,7 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
     T[2,3] = currentPos[2]
     transformed_scan = scan.transform(T)
 
-    # # SlAM method using scans only for georeferencing
-    # transformed_scan = slam.rotate_scan(last_scan, scan)
-    # last_scan = transformed_scan
-
+    # Write the transformed scan to file
     lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
                                         'lidar_feature' + str(i+1) + 'scan' + str(counter+1) + '.xyz')
     clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
@@ -230,11 +110,13 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
 
         # Navigate the robot around the feature until it returns
         # to its starting point, scanning at the set threshold distance
+        # and georeferencing those scans
         if target_distance(lastScanPos, currentPos) > \
             const.SCAN_THRESHOLD:
 
-            # Capture a new scan, rotate based on first scan, and write to file
             logging.debug("Acquiring LiDAR scan ...")
+            
+            # Capture a new scan
             scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
                                                     pioneer3at.lidar, currentPos,
                                                     currentBearing,
@@ -249,10 +131,7 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
             T[2,3] = currentPos[2]
             transformed_scan = scan.transform(T)
 
-            # # SlAM method using scans only for georeferencing
-            # transformed_scan = slam.rotate_scan(last_scan, scan)
-            # last_scan = transformed_scan
-
+            # Write the transformed scan to file
             lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
                                                 'lidar_feature' + str(i+1) + 'scan' + str(counter+1) + '.xyz')
             clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
@@ -282,8 +161,6 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
             else:
                 set_velocity(pioneer3at.wheels, const.MAX_SPEED, const.MAX_SPEED)
 
-# NTS: Need to incorperate camera, either move camera to side on, or change prepare to map and lidar sample obtained
-# NTS: ET1's trajectory's will play a part in this decision
 def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
 
     # Calculate starting position
@@ -296,9 +173,6 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
     threshold = targets[2]
     scanBearing = targets[1]
     firstScanBearing = scanBearing
-
-    #Unused SLAM variable
-    #last_scan = first_scan
 
     # Variables for mapping control, as well as adding and indicating additional points along a plane
     mappingFlag = True
@@ -353,16 +227,13 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
         currentPos = robot_position(pioneer3at.gps)
         currentBearing = robot_bearing(pioneer3at.imu)
 
-        # Capture a new scan, rotate based on first scan, and write to file
         logging.debug("Acquiring LiDAR scan ...")
+        
+        # Capture a new scan
         scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
                                                 pioneer3at.lidar, currentPos,
                                                 currentBearing,
                                                 scan='feature', threshold=threshold)
-
-        # # SlAM method using scans only for georeferencing
-        # transformed_scan = slam.rotate_scan(last_scan, scan)
-        # last_scan = transformed_scan
 
         # 4D Transformation method using gps and imu for georeferencing scans
         T = np.eye(4)
@@ -383,8 +254,9 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
                                             '.xyz')
         clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
 
-        # Detect features/clusters within the transformed lidar scan
         logging.debug("Clustering LiDAR scan ...")
+        
+        # Detect features/clusters within the transformed lidar scan
         features = clust.cluster_points(np.array(transformed_scan.points))
 
         # Warn user if multiple features detected
@@ -565,18 +437,7 @@ def bearing(displacement):
 def distance(displacement):
 
     return math.sqrt((displacement[0])**2
-                     #+ (displacement[1])**2
                      + (displacement[2])**2)
-
-def elevation(displacement, dist):
-
-    return math.asin(displacement[2] / dist)
-
-def xyDistance(pair1, pair2):
-
-    displacement = pair1[0] - pair2[0], pair1[1] - pair2[1]
-
-    return math.sqrt((displacement[0])**2 + (displacement[1])**2)
 
 def move_to_pose(x_start, y_start, theta_start, x_goal, y_goal, theta_goal):
     """
