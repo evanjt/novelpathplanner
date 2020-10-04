@@ -312,25 +312,25 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
     mappingPositions = []
     [mappingPositions.append([]) for i in range(4)]
 
-    if scanBearing == 0:
+    if scanBearing == 270:
         [mappingPositions[0].append([bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
         [mappingPositions[1].append([bbox[0]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[3]+threshold]) for i in range(xlength+1)]
         [mappingPositions[2].append([bbox[1]+threshold, 0, bbox[3]-zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
-        [mappingPositions[3].append([bbox[1]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold]) for i in range(xlength+1)]
-    elif scanBearing == 90:
-        [mappingPositions[0].append([bbox[1]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold]) for i in range(xlength+1)]
+        [mappingPositions[3].append([bbox[1]-zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold]) for i in range(xlength+1)]
+    elif scanBearing == 0:
+        [mappingPositions[0].append([bbox[1]-zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold]) for i in range(xlength+1)]
         [mappingPositions[1].append([bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
         [mappingPositions[2].append([bbox[0]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[3]+threshold]) for i in range(xlength+1)]
         [mappingPositions[3].append([bbox[1]+threshold, 0, bbox[3]-zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
-    elif scanBearing == 180:
+    elif scanBearing == 90:
         [mappingPositions[0].append([bbox[1]+threshold, 0, bbox[3]-zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
-        [mappingPositions[1].append([bbox[1]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold]) for i in range(xlength+1)]
+        [mappingPositions[1].append([bbox[1]-zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold]) for i in range(xlength+1)]
         [mappingPositions[2].append([bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
         [mappingPositions[3].append([bbox[0]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[3]+threshold]) for i in range(xlength+1)]
-    elif scanBearing == 270:
+    elif scanBearing == 180:
         [mappingPositions[0].append([bbox[0]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[3]+threshold]) for i in range(xlength+1)]
         [mappingPositions[1].append([bbox[1]+threshold, 0, bbox[3]-zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
-        [mappingPositions[2].append([bbox[1]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold]) for i in range(xlength+1)]
+        [mappingPositions[2].append([bbox[1]-zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold]) for i in range(xlength+1)]
         [mappingPositions[3].append([bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i]) for i in range(zlength+1)]
     else:
         logging.info("Bearing error encountered whilst mapping feature {}"
@@ -366,17 +366,7 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
 
         # 4D Transformation method using gps and imu for georeferencing scans
         T = np.eye(4)
-        if scanBearing == 0:
-            axisRotation = np.deg2rad(currentBearing + 180) % 360
-        elif scanBearing == 90:
-            axisRotation = np.deg2rad(currentBearing)
-        elif scanBearing == 180:
-            axisRotation = np.deg2rad(currentBearing + 180) % 360
-        elif scanBearing == 270:
-            axisRotation = np.deg2rad(currentBearing)
-        else:
-            logging.info("Bearing error encountered whilst mapping feature {}"
-                        .format(featureNumber+1))
+        axisRotation = np.deg2rad((180 - currentBearing + 360) % 360)
         T[:3,:3] = scan.get_rotation_matrix_from_xyz((0,axisRotation, 0))
         T[0,3] = currentPos[0]
         T[1,3] = currentPos[1]
@@ -410,18 +400,18 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
             zmax = max(feature, key=lambda x: x[2])[2]
             zmin = min(feature, key=lambda x: x[2])[2]
 
-        if xmin < bbox[0]:
-            bbox[0] = xmin
-        if xmax > bbox[1]:
-            bbox[1] = xmax
-        if zmin < bbox[2]:
-            bbox[2] = zmin
-        if zmax > bbox[3]:
-            bbox[3] = zmax
-        if ymax > threshold + 0.1:
-            threshold = ymax
-            logging.info("Height increase in feature {} detected, increasing mapping distance"
-                        .format(featureNumber+1))
+            if xmin < bbox[0]:
+                bbox[0] = xmin
+            if xmax > bbox[1]:
+                bbox[1] = xmax
+            if zmin < bbox[2]:
+                bbox[2] = zmin
+            if zmax > bbox[3]:
+                bbox[3] = zmax
+            if ymax > threshold + 0.1:
+                threshold = ymax
+                logging.info("Height increase in feature {} detected, increasing mapping distance"
+                            .format(featureNumber+1))
 
         # Determine if bbox changes indicate additional scans are required
         if math.floor((bbox[1]-bbox[0])/const.SCAN_THRESHOLD) > xlength:
@@ -437,22 +427,22 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
 
         # If additional scans are required update mapping positions
         if bboxFlag:
-            if firstScanBearing == 0:
+            if firstScanBearing == 270:
                 mappingPositions[0][:] = [[bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i] for i in range(zlength+1)]
                 mappingPositions[1][:] = [[bbox[0]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[3]+threshold] for i in range(xlength+1)]
                 mappingPositions[2][:] = [[bbox[1]+threshold, 0, bbox[3]-zero_division(bbox[3]-bbox[2],zlength)*i] for i in range(zlength+1)]
                 mappingPositions[3][:] = [[bbox[1]-zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold] for i in range(xlength+1)]
-            elif firstScanBearing == 90:
+            elif firstScanBearing == 0:
                 mappingPositions[0][:] = [[bbox[1]-zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold] for i in range(xlength+1)]
                 mappingPositions[1][:] = [[bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i] for i in range(zlength+1)]
                 mappingPositions[2][:] = [[bbox[0]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[3]+threshold] for i in range(xlength+1)]
                 mappingPositions[3][:] = [[bbox[1]+threshold, 0, bbox[3]-zero_division(bbox[3]-bbox[2],zlength)*i] for i in range(zlength+1)]
-            elif firstScanBearing == 180:
+            elif firstScanBearing == 90:
                 mappingPositions[0][:] = [[bbox[1]+threshold, 0, bbox[3]-zero_division(bbox[3]-bbox[2],zlength)*i] for i in range(zlength+1)]
                 mappingPositions[1][:] = [[bbox[1]-zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold] for i in range(xlength+1)]
                 mappingPositions[2][:] = [[bbox[0]-threshold, 0, bbox[2]+zero_division(bbox[3]-bbox[2],zlength)*i] for i in range(zlength+1)]
                 mappingPositions[3][:] = [[bbox[0]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[3]+threshold] for i in range(xlength+1)]
-            elif firstScanBearing == 270:
+            elif firstScanBearing == 180:
                 mappingPositions[0][:] = [[bbox[0]+zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[3]+threshold] for i in range(xlength+1)]
                 mappingPositions[1][:] = [[bbox[1]+threshold, 0, bbox[3]-zero_division(bbox[3]-bbox[2],zlength)*i] for i in range(zlength+1)]
                 mappingPositions[2][:] = [[bbox[1]-zero_division(bbox[1]-bbox[0],xlength)*i, 0, bbox[2]-threshold] for i in range(xlength+1)]
@@ -475,8 +465,8 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
 
         # Check to see if the final scan has been completed for each edge
         # If complete either prepare for the next scan or set the mappingFlag to end the loop
-        if ((scanBearing == 90 or scanBearing == 270) and scanCounter == xlength+1) or \
-            ((scanBearing == 0 or scanBearing == 180) and scanCounter == zlength+1):
+        if ((scanBearing == 90 or scanBearing == 270) and scanCounter == zlength+1) or \
+            ((scanBearing == 0 or scanBearing == 180) and scanCounter == xlength+1):
             logging.info("Mapping of edge {} feature {} complete"
                         .format(edgeCounter+1, featureNumber+1))
             scanCounter = 0
@@ -486,20 +476,16 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
                             .format(featureNumber+1))
                 mappingFlag = False
             else:
-                # nav_to_point_PID(pioneer3at,
-                #                 x_goal = mappingPositions[edgeCounter][scanCounter][0],
-                #                 y_goal = mappingPositions[edgeCounter][scanCounter][2],
-                #                 theta_goal = np.radians(scanBearing), obstacle_detection = False)
-                currentPos, currentBearing, last_scan = nav_to_point(scanCounter, mappingPositions[edgeCounter][scanCounter], pioneer3at, False, currentPos, first_scan)
                 scanBearing = (scanBearing + 270) % 360
-                prepare_to_map(pioneer3at, scanBearing)
+                nav_to_point_PID(pioneer3at,
+                                x_goal = mappingPositions[edgeCounter][scanCounter][0],
+                                y_goal = mappingPositions[edgeCounter][scanCounter][2],
+                                theta_goal = np.radians(scanBearing), obstacle_detection = False)
         else:
-                # nav_to_point_PID(pioneer3at,
-                #                 x_goal = mappingPositions[edgeCounter][scanCounter][0],
-                #                 y_goal = mappingPositions[edgeCounter][scanCounter][2],
-                #                 theta_goal = np.radians(scanBearing), obstacle_detection = False)
-            currentPos, currentBearing, last_scan = nav_to_point(scanCounter, mappingPositions[edgeCounter][scanCounter], pioneer3at, False, currentPos, first_scan)
-            prepare_to_map(pioneer3at, scanBearing)
+                nav_to_point_PID(pioneer3at,
+                                x_goal = mappingPositions[edgeCounter][scanCounter][0],
+                                y_goal = mappingPositions[edgeCounter][scanCounter][2],
+                                theta_goal = np.radians(scanBearing), obstacle_detection = False)
 
 def zero_division(n, d):
 

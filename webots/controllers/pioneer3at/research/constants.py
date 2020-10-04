@@ -50,7 +50,7 @@ MAPPING_BUFFER = 0.5
 FEATURE_THRESHOLD = 1
 
 # Define threshold distance (m) between taking lidar scans whilst mapping
-SCAN_THRESHOLD = 5
+SCAN_THRESHOLD = 3
 
 # Define threshold distance (m) between updating the bearing to target whilst navigating
 # When in SLAM mode this is also the threshold distance (m) between taking lidar scans whilst navigating

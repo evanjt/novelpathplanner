@@ -69,13 +69,11 @@ def get_targets(robot, timestep, lidar, focalLength, location, point_array):
         if mappingDist > dataQualityLimit:
             print("Error, poor mapping quality")
 
-        print(bottomMappingDist, topMappingDist,
-                            verticalDensityMappingDist, horizontalDensityMappingDist)
-
+        if mappingDist < 3 and dataQualityLimit > 3:
+            mappingDist = 3 
+        
         #camera
         cameraMappingDist = (focalLength * (ymax+const.CAMERA_HEIGHT) * const.CAMERA_VERTICAL_RESOLUTION)/((const.CAMERA_VERTICAL_RESOLUTION-20) * const.CAMERA_HEIGHT)
-
-        print(cameraMappingDist)
 
         if const.DEVICE == "lidar":
             if (xmax - xmin) > (zmax - zmin) and zmax > const.HOME_LOCATION[2]:
@@ -96,19 +94,19 @@ def get_targets(robot, timestep, lidar, focalLength, location, point_array):
                 mappingDists.append(mappingDist)
         if const.DEVICE == "camera":
             if (xmax - xmin) > (zmax - zmin) and zmax > const.HOME_LOCATION[2]:
-                bearingList.append(90)
+                bearingList.append(0)
                 featureList.append([xmax, zmin-mappingDist])
                 mappingDists.append(mappingDist)
             elif (xmax - xmin) > (zmax - zmin) and zmax < const.HOME_LOCATION[2]:
-                bearingList.append(270)
+                bearingList.append(180)
                 featureList.append([xmin, zmax+mappingDist])
                 mappingDists.append(mappingDist)
             elif (zmax - zmin) > (xmax - xmin) and xmax > const.HOME_LOCATION[0]:
-                bearingList.append(0)
+                bearingList.append(270)
                 featureList.append([xmin-mappingDist, zmin])
                 mappingDists.append(mappingDist)
             else:
-                bearingList.append(180)
+                bearingList.append(90)
                 featureList.append([xmax+mappingDist, zmax])
                 mappingDists.append(mappingDist)
 
@@ -160,12 +158,12 @@ def capture_lidar_scene(robot, timestep, lidar_device, location, bearing,
         distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
 
         if scan == 'feature':
-            if row.y > -0.4 and row.y < 5 \
-                and row.x < 0 and row.z < 5 and row.z > -5 \
-                and distance < threshold + 5:
+            if row.y > -0.4 and row.y < 4 \
+                and row.z < 0 and row.x < 4 and row.x > -4 \
+                and distance < threshold + 4:
                 point_list.append((row.x, row.y, row.z))
         else:
-            if row.y > -0.4 and row.y < 5 and distance < threshold + 5:
+            if row.y > -0.4 and row.y < 4 and distance < threshold + 4:
                 point_list.append((row.x, row.y, row.z))
 
     logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
