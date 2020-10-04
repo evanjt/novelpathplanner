@@ -76,7 +76,9 @@ while pioneer3at.robot.step(pioneer3at.timestep) != -1:
         logging.info("Starting to map feature {} at: "
                     "{:.3f}x {:.3f}y {:.3f}z".format(i, *nav.robot_position(pioneer3at.gps)))
 
-        if const.DEVICE == 'lidar':
+        if i==len(targets)-1:
+            break # End if at last position
+        elif const.DEVICE == 'lidar':
             nav.lidar_mapping(pioneer3at, target, i, clust.convert_to_o3d(clusters[i]))
         elif const.DEVICE == 'camera':
             nav.camera_mapping(pioneer3at, target, i, clust.convert_to_o3d(clusters[i]))
