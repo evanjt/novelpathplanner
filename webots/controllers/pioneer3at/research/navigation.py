@@ -227,7 +227,15 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
         currentPos = robot_position(pioneer3at.gps)
         currentBearing = robot_bearing(pioneer3at.imu)
 
-        logging.debug("Acquiring LiDAR scan ...")
+        logging.debug("Acquiring Image and LiDAR scan ...")
+
+        # Capture a new image and save to file
+        cameraData = pioneer3at.camera.getImage()
+        camera_feature_imagepath = os.path.join(const.OUTPUT_PATH,
+                                            'camera_feature'+ str(featureNumber+1) + \
+                                            'scan' + str(edgeCounter+1) + str(scanCounter+1) + \
+                                            '.jpeg')
+        pioneer3at.camera.saveImage(camera_feature_imagepath, 100)
         
         # Capture a new scan
         scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
@@ -287,13 +295,11 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
 
         # Determine if bbox changes indicate additional scans are required
         if math.floor((bbox[1]-bbox[0])/const.SCAN_THRESHOLD) > xlength:
-            logging.info("Feature requires an additional scan(s) along edge {}"
-                        .format(edgeCounter+1))
+            logging.info("Feature requires an additional scan(s) along the x axis")
             bboxFlag=True
             xlength = math.floor((bbox[1]-bbox[0])/const.SCAN_THRESHOLD)
         if math.floor((bbox[3]-bbox[2])/const.SCAN_THRESHOLD) > zlength:
-            logging.info("Feature requires an additional scan(s) along edge {}"
-                        .format(edgeCounter+1))
+            logging.info("Feature requires an additional scan(s) along the y axis")
             bboxFlag=True
             zlength = math.floor((bbox[3]-bbox[2])/const.SCAN_THRESHOLD)
 
@@ -583,8 +589,8 @@ def nav_to_point_PID(pioneer3at, x_goal, y_goal, theta_goal, obstacle_detection 
     y_start = robot_position(pioneer3at.gps)[2]
     theta_start = np.radians(robot_bearing(pioneer3at.imu))
 
-    logging.info("Initial x: {:5.2f} m | y: {:5.2f} m | theta: {:5.2f} deg".format(x_start, y_start, np.degrees(theta_start)))
-    logging.info("Goal    x: {:5.2f} m | y: {:5.2f} m | theta: {:5.2f} deg".format(x_goal, y_goal, np.degrees(theta_goal)))
+    logging.info("Initial x: {:5.2f} m | y: {:5.2f} m | bearing: {:5.2f} deg".format(x_start, y_start, np.degrees(theta_start)))
+    logging.info("Goal    x: {:5.2f} m | y: {:5.2f} m | bearing: {:5.2f} deg".format(x_goal, y_goal, np.degrees(theta_goal)))
     obstacle_flag = False
     traj_list = plan_eta_3_curve(x_start, y_start, theta_start + np.radians(const.TRAJPLANNING_BEARING_OFFSET),
                                  x_goal, y_goal, theta_goal + np.radians(const.TRAJPLANNING_BEARING_OFFSET))

@@ -37,9 +37,24 @@ def get_targets(robot, timestep, lidar, focalLength, location, point_array):
     
     # Detect features/clusters within lidar scene
     features = cluster_points(point_array)
+       
+    # Test if the scan threshold is small enough to allow image overlap
+    cameraMappingWidth = ((const.SCAN_THRESHOLD)/ \
+            math.tan(math.radians(const.CAMERA_HORIZONTAL_FOV/2)))*2        
+    if cameraMappingWidth < const.SCAN_THRESHOLD and const.DEVICE == 'camera':
+        logging.info("Warning: The scanning distance is too large to allow image overlap map")
+    
+    # Identify the mapping distance limit for quality data capture
+    verticalDensityMappingDist = (1/math.sqrt(const.POINT_DENSITY))/ \
+        math.tan(math.radians(const.LIDAR_VERTICAL_VOF/const.LIDAR_VERTICAL_RESOLUTION)) 
+    horizontalDensityMappingDist = (1/math.sqrt(const.POINT_DENSITY))/ \
+        math.tan(math.radians(const.LIDAR_HORIZONTAL_FOV/const.LIDAR_HORIZONTAL_RESOLUTION))
+    # pixelResolutionMappingDist = const.PIXEL_RESOLUTION * (focalLength * const.PIXEL_SIZE)
 
+    dataQualityLimit = min([verticalDensityMappingDist, horizontalDensityMappingDist]) # pixelResolutionMappingDist])     
+    
     # Obtain the bbox of each cluster
-    # Calculate the optimal mapping distance based on the cluster size
+    # Calculate the optimal mapping distance based on the cluster size and device parameters
     for feature in features:
         xmax = max(feature, key=lambda x: x[0])[0]
         xmin = min(feature, key=lambda x: x[0])[0]
@@ -49,28 +64,24 @@ def get_targets(robot, timestep, lidar, focalLength, location, point_array):
 
         bboxList.append([xmin, xmax, zmin, zmax])
 
-        bottomMappingDist = (const.SCANNER_HEIGHT)/ \
+        bottomLidarMappingDist = (const.SCANNER_HEIGHT)/ \
             math.tan(math.radians(const.LIDAR_VERTICAL_VOF/2))
-        topMappingDist = (ymax)/ \
+        topLidarMappingDist = (ymax)/ \
             math.tan(math.radians(const.LIDAR_VERTICAL_VOF/2))
-        verticalDensityMappingDist = (1/math.sqrt(const.POINT_DENSITY))/ \
-            math.tan(math.radians(const.LIDAR_VERTICAL_VOF/const.LIDAR_VERTICAL_RESOLUTION)) 
-        horizontalDensityMappingDist = (1/math.sqrt(const.POINT_DENSITY))/ \
-            math.tan(math.radians(const.LIDAR_HORIZONTAL_FOV/const.LIDAR_HORIZONTAL_RESOLUTION))
-
+        bottomCameraMappingDist = (const.CAMERA_HEIGHT)/ \
+            math.tan(math.radians(const.CAMERA_VERTICAL_VOF/2)) + const.CAMERA_OFFSET       
+        topCameraMappingDist = (ymax + (const.SCANNER_HEIGHT - const.CAMERA_HEIGHT))/ \
+            math.tan(math.radians(const.CAMERA_VERTICAL_VOF/2)) + const.CAMERA_OFFSET
         
-        dataQualityLimit = min([verticalDensityMappingDist, horizontalDensityMappingDist])
-        
-        mappingDist = max([bottomMappingDist, topMappingDist])
+        lidarMappingDist = max([bottomLidarMappingDist, topLidarMappingDist])
+        cameraMappingDist = max([bottomCameraMappingDist, topCameraMappingDist])
+        mappingDist = max([lidarMappingDist, cameraMappingDist])
 
         if mappingDist > dataQualityLimit:
-            print("Error, poor mapping quality")
-
-        if mappingDist < 3 and dataQualityLimit > 3:
-            mappingDist = 3 
-        
-        #camera
-        cameraMappingDist = (focalLength * (ymax+const.CAMERA_HEIGHT) * const.CAMERA_VERTICAL_RESOLUTION)/((const.CAMERA_VERTICAL_RESOLUTION-20) * const.CAMERA_HEIGHT)
+            mappingDist = dataQualityLimit
+            logging.info("Warning: A feature(s) is too tall to map completely at the specified quality")
+        elif mappingDist < 3 and dataQualityLimit > 3:
+            mappingDist = 3
 
         if const.DEVICE == "lidar":
             if (xmax - xmin) > (zmax - zmin) and zmax > const.HOME_LOCATION[2]:
