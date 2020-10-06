@@ -59,7 +59,7 @@ logging.info("{} features found -- Beginning survey".format(len(targets)-1))
 # Navigate to and map each target feature whilst avoiding obstacles
 while pioneer3at.robot.step(pioneer3at.timestep) != -1:
     for i, target in enumerate(targets):
-
+        pioneer3at.current_target = target
         logging.info("Heading to feature {}".format(i+1))
 
         obstacle_flag = True # Test obstacles before start

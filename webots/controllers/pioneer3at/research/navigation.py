@@ -89,7 +89,6 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
     lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
                                         'lidar_feature' + str(i+1) + 'scan' + str(counter+1) + '.xyz')
     clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
-    pioneer3at.last_feature_points = transformed_scan
 
     # Set the last_scan variable to the last transformed scan and set lastScanpos
     counter+=1
@@ -130,7 +129,6 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
             lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
                                                 'lidar_feature' + str(i+1) + 'scan' + str(counter+1) + '.xyz')
             clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
-            pioneer3at.last_feature_points = transformed_scan
 
             # Set the last_scan variable to the last transformed scan and set lastScanpos
             lastScanPos = currentPos
@@ -245,7 +243,6 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
                                             'scan' + str(edgeCounter+1) + str(scanCounter+1) + \
                                             '.xyz')
         clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
-        pioneer3at.last_feature_points = transformed_scan
 
         logging.debug("Clustering LiDAR scan ...")
 

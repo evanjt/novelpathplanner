@@ -24,6 +24,7 @@ class RobotDevice():
         self.average_density = None
         self.lidar_num_clusters = None
         self.last_feature_points = None
+        self.current_target = -1
 
     def addLidar(self, lidar3DID,
                  lidarFrontID = None,

@@ -170,13 +170,17 @@ def capture_lidar_scene(robot, method='w', scan='full', threshold=20):
 
     logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
 
+    # Filter outlier points
     xyz = filter_points(np.array(point_list))
 
     o3dpoints = convert_to_o3d(xyz)
 
+    ''' Gets the quality of the scanned lidar, sends it to a variable in the robot's
+        class, and if this variable changes, the logger detects it and writes to the
+        coordinates file then resets it - How kind of it :)
+    '''
     if scan == 'feature':
         get_lidar_quality(o3dpoints, robot)
-        robot.last_feature_points = xyz
 
     return o3dpoints
 
@@ -240,6 +244,16 @@ def filter_points(df, k=50, threshold=1):
     return df[abs(tnn_distance - np.mean(tnn_distance)) < threshold * np.std(tnn_distance)]
 
 def get_lidar_quality(pcd, robot):
+    ''' Uses the input scan (which happens on a subset of lidar when next to a feature)
+        to determine some quality measurements to then append to the output coordinates
+        logger file.
+
+        In: Point cloud in o3d format
+            Robot's class
+
+        Returns:
+            Nothing -- Writes the attributes to the class for the logger to pick up
+    '''
     plane_model, inliers = pcd.segment_plane(distance_threshold=0.01,
                                              ransac_n=3,
                                              num_iterations=1000)
@@ -247,6 +261,7 @@ def get_lidar_quality(pcd, robot):
     np_inlier = np.array(inlier_cloud.points)
     clustering = DBSCAN(eps=0.5, min_samples=10).fit(np_inlier)
     total_area = 0
+    print("NUMBER OF POINTS:", len(inliers))
     for cluster in np.unique(clustering.labels_):
         subX = np_inlier[clustering.labels_ == cluster]
         convex_hull = scipy.spatial.ConvexHull(subX)
@@ -255,8 +270,6 @@ def get_lidar_quality(pcd, robot):
             cluster, convex_hull.area, subX.shape[0],
             subX.shape[0]/convex_hull.area, subX.shape[0]/convex_hull.area > const.POINT_DENSITY), end='')
     average_density = np_inlier.shape[0]/total_area
-    print("| Avg density: {:.2f}".format(average_density))
+    print(" | Avg density: {:.2f}".format(average_density))
     robot.average_density = average_density
     robot.lidar_num_clusters = len(np.unique(clustering.labels_))
-
-    #return cluster, convex_hull.area, subX.shape[0], subX.shape[0]/convex_hull.area, average_density
