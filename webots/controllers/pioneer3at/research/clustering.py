@@ -80,11 +80,11 @@ def get_targets(robot, timestep, lidar, focalLength, location, point_array):
         mappingDist = max([lidarMappingDist, cameraMappingDist])
 
         if mappingDist > dataQualityLimit:
-            mappingDist = dataQualityLimit
+            mappingDist = const.MAPPINGDISTANCE_WINDOW
             logging.info("Warning: A feature(s) is too tall to map completely at the specified quality")
             robot.warning = "tallfeature"
         elif mappingDist < 3 and dataQualityLimit > 3:
-            mappingDist = 3
+            mappingDist = const.MAPPINGDISTANCE_WINDOW
 
         if const.DEVICE == "lidar":
             if (xmax - xmin) > (zmax - zmin) and zmax > const.HOME_LOCATION[2]:
@@ -154,7 +154,7 @@ def get_targets(robot, timestep, lidar, focalLength, location, point_array):
 
     return clusters[1:], targets[1:]
 
-def capture_lidar_scene(robot, method='w', scan='full', threshold=20):
+def capture_lidar_scene(robot, method='w', scan='full', threshold=20, seeing_buffer = 2):
 
     point_list = []
 
@@ -169,15 +169,15 @@ def capture_lidar_scene(robot, method='w', scan='full', threshold=20):
         if scan == 'feature' and const.DEVICE == 'lidar':
             if row.y > -0.4 and row.y < 4 \
                 and row.x < 0 and row.z < 4 and row.z > -4 \
-                and distance < threshold + 4:
+                and distance < threshold + seeing_buffer:
                 point_list.append((row.x, row.y, row.z))
         elif scan == 'feature' and const.DEVICE == 'camera':
             if row.y > -0.4 and row.y < 4 \
                 and row.z < 0 and row.x < 4 and row.x > -4 \
-                and distance < threshold + 4:
+                and distance < threshold + seeing_buffer:
                 point_list.append((row.x, row.y, row.z))
         else:
-            if row.y > -0.4 and row.y < 4 and distance < threshold + 4:
+            if row.y > -0.4 and row.y < 4 and distance < threshold + seeing_buffer:
                 point_list.append((row.x, row.y, row.z))
 
     logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
