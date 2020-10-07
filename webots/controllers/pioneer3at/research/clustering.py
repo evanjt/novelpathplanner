@@ -154,7 +154,7 @@ def get_targets(robot, timestep, lidar, focalLength, location, point_array):
 
     return clusters[1:], targets[1:]
 
-def capture_lidar_scene(robot, method='w', scan='full', threshold=20, seeing_buffer = 2):
+def capture_lidar_scene(robot, method='w', scan='full', threshold=20, seeing_buffer = 4):
 
     point_list = []
 

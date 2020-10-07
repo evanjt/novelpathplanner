@@ -242,15 +242,16 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
         T[2,3] = currentPos[2]
         transformed_scan = scan.transform(T)
 
-        # Increment scan counter
-        pioneer3at.scan_counter +=1
-
         # Output transformed scan to file
         lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
                                             'lidar_feature'+ str(featureNumber+1) + \
                                             'scan' + str(pioneer3at.edge_counter+1) + str(pioneer3at.scan_counter+1) + \
                                             '.xyz')
         clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
+        
+        # Increment scan counter
+        pioneer3at.scan_counter +=1
+
 
         logging.debug("Clustering LiDAR scan ...")
 
