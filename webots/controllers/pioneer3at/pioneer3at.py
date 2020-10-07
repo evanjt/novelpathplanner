@@ -22,6 +22,13 @@ import research.navigation as nav
 import research.logger as log
 from research.classes import RobotDevice
 
+# Create new output folder based on ISO time
+if not os.path.exists(const.OUTPUT_PATH):
+    try:
+        os.mkdir(const.OUTPUT_PATH)
+        print("Created output folder:\n{}".format(const.OUTPUT_PATH))
+    except:
+        sys.exit("Can't create output folder")
 
 # Define robot and devices
 pioneer3at = RobotDevice(Supervisor())
@@ -32,6 +39,7 @@ pioneer3at.addIMU('imu')
 pioneer3at.addWheels(['front left wheel', 'front right wheel',
                       'back left wheel', 'back right wheel'])
 pioneer3at.startLogging()
+
 
 #import glob, sys
 #print("worldfiles")
