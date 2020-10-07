@@ -23,7 +23,7 @@ import research.constants as const
 def form_line(x, y, target, sim_time, scan_no = -1, edge_no = -1, pointtype = "waypoint", bearing = 0.0,
               numclusters = 0, avgpointdensity = 0.0):
 
-    if pointtype == 'scan':
+    if pointtype == 'scan_lidar' or pointtype == 'scan_camera':
         point_threshold = int(avgpointdensity >= const.POINT_DENSITY)
     else:
         point_threshold = -1 # Non existant
@@ -78,7 +78,8 @@ def worker(robot):
 
                 robot.average_density = None
                 robot.lidar_num_clusters = None
-            if robot.warning is not None: # Print warning message to log
+
+            elif robot.warning is not None: # Print warning message to log
                 outFeature = form_line(x = robotcoordinate[0], y = robotcoordinate[2], sim_time = robot.robot.getTime(),
                                        pointtype = str("warningMSG-" + robot.warning), bearing = round(robotbearing,2),
                                        target = robot.current_target)
