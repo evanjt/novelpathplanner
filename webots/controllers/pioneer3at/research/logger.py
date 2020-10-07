@@ -75,6 +75,11 @@ def worker(robot):
 
                 robot.average_density = None
                 robot.lidar_num_clusters = None
+            if robot.warning is not None: # Print warning message to log
+                outFeature = form_line(x = robotcoordinate[0], y = robotcoordinate[2],
+                                       pointtype = str("warningMSG-" + robot.warning), bearing = round(robotbearing,2),
+                                       target = robot.current_target)
+                robot.warning = None # Return to no warning
 
             else:
 

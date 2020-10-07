@@ -27,6 +27,7 @@ class RobotDevice():
         self.current_target = -1
         self.scan_counter = -1
         self.edge_counter = -1
+        self.warning = None
 
     def addLidar(self, lidar3DID,
                  lidarFrontID = None,

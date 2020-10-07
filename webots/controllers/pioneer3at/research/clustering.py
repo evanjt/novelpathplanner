@@ -45,7 +45,7 @@ def get_targets(robot, timestep, lidar, focalLength, location, point_array):
             math.tan(math.radians(const.CAMERA_HORIZONTAL_FOV/2)))*2
     if cameraMappingWidth < const.SCAN_THRESHOLD and const.DEVICE == 'camera':
         logging.info("Warning: The scanning distance is too large to allow image overlap map")
-
+        robot.warning = "scandist"
     # Identify the mapping distance limit for quality data capture
     verticalDensityMappingDist = (1/math.sqrt(const.POINT_DENSITY))/ \
         math.tan(math.radians(const.LIDAR_VERTICAL_VOF/const.LIDAR_VERTICAL_RESOLUTION))
@@ -82,6 +82,7 @@ def get_targets(robot, timestep, lidar, focalLength, location, point_array):
         if mappingDist > dataQualityLimit:
             mappingDist = dataQualityLimit
             logging.info("Warning: A feature(s) is too tall to map completely at the specified quality")
+            robot.warning = "tallfeature"
         elif mappingDist < 3 and dataQualityLimit > 3:
             mappingDist = 3
 
