@@ -232,12 +232,6 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
         pioneer3at.camera.saveImage(camera_feature_imagepath, 100)
 
         # Capture a new scan
-        scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
-                                                pioneer3at.lidar, currentPos,
-                                                currentBearing,
-                                                scan='feature', threshold=threshold)
-
-        # Capture a new scan
         scan = clust.capture_lidar_scene(pioneer3at, scan='feature', threshold=threshold)
         # 4D Transformation method using gps and imu for georeferencing scans
         T = np.eye(4)
