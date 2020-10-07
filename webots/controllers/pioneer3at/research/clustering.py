@@ -272,15 +272,14 @@ def get_lidar_quality(pcd, robot):
     np_inlier = np.array(inlier_cloud.points)
     clustering = DBSCAN(eps=0.5, min_samples=10).fit(np_inlier)
     total_area = 0
-    print("NUMBER OF POINTS:", len(inliers))
     for cluster in np.unique(clustering.labels_):
         subX = np_inlier[clustering.labels_ == cluster]
         convex_hull = scipy.spatial.ConvexHull(subX)
         total_area += convex_hull.area
-        print("\n[Cluster {}] Area: {:.2f}m^2 | Points: {:5d} | Point density: {:.2f} {}".format(
+        logging.info("[Cluster {:2d}] Area: {:.2f}m^2 | Points: {:5d} | Point density: {:.2f} | Meets threshold: {}".format(
             cluster, convex_hull.area, subX.shape[0],
-            subX.shape[0]/convex_hull.area, subX.shape[0]/convex_hull.area > const.POINT_DENSITY), end='')
+            subX.shape[0]/convex_hull.area, subX.shape[0]/convex_hull.area > const.POINT_DENSITY))
     average_density = np_inlier.shape[0]/total_area
-    print(" | Avg density: {:.2f}".format(average_density))
+    logging.info("             Avg density: {:.2f}m^2".format(average_density))
     robot.average_density = average_density
     robot.lidar_num_clusters = len(np.unique(clustering.labels_))
