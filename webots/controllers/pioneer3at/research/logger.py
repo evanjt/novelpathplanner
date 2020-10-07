@@ -20,16 +20,16 @@ from research.navigation import robot_position, robot_bearing
 import research.constants as const
 
 
-def form_line(x, y, target, scan_no = -1, edge_no = -1, pointtype = "waypoint", bearing = 0.0,
+def form_line(x, y, target, sim_time, scan_no = -1, edge_no = -1, pointtype = "waypoint", bearing = 0.0,
               numclusters = 0, avgpointdensity = 0.0):
 
-    if pointtype == 'scan':
+    if pointtype == 'scan_lidar' or pointtype == 'scan_camera':
         point_threshold = int(avgpointdensity >= const.POINT_DENSITY)
     else:
         point_threshold = -1 # Non existant
 
     message = geojson.Feature(geometry=geojson.Point((x, y)),
-                                 properties={"time": datetime.datetime.now().isoformat(),
+                                 properties={"time": sim_time,
                                              "type": pointtype,
                                              "currentTarget": target,
                                              "currentScan": scan_no,
@@ -67,23 +67,27 @@ def worker(robot):
                     scan_type = "scan_camera"
 
                 outFeature = form_line(x = robotcoordinate[0], y = robotcoordinate[2],
-                                       pointtype = scan_type, bearing = round(robotbearing,2),
+                                       pointtype = scan_type,
+                                       sim_time = robot.robot.getTime(),
+                                       bearing = round(robotbearing,2),
                                        numclusters = robot.lidar_num_clusters,
                                        avgpointdensity = round(robot.average_density, 2),
                                        target = robot.current_target,
-                                       scan_no = robot.scan_counter, edge_no = edge_no)
+                                       scan_no = robot.scan_counter,
+                                       edge_no = edge_no)
 
                 robot.average_density = None
                 robot.lidar_num_clusters = None
-            if robot.warning is not None: # Print warning message to log
-                outFeature = form_line(x = robotcoordinate[0], y = robotcoordinate[2],
+
+            elif robot.warning is not None: # Print warning message to log
+                outFeature = form_line(x = robotcoordinate[0], y = robotcoordinate[2], sim_time = robot.robot.getTime(),
                                        pointtype = str("warningMSG-" + robot.warning), bearing = round(robotbearing,2),
                                        target = robot.current_target)
                 robot.warning = None # Return to no warning
 
             else:
 
-                outFeature = form_line(x = robotcoordinate[0], y = robotcoordinate[2],
+                outFeature = form_line(x = robotcoordinate[0], y = robotcoordinate[2], sim_time = robot.robot.getTime(),
                                        pointtype = "waypoint", bearing = round(robotbearing,2),
                                        target = robot.current_target)
 

@@ -11,6 +11,7 @@
 import os
 import math
 import numpy as np
+import datetime
 
 # Define home location
 HOME_LOCATION = [0, 0, 0]
@@ -106,5 +107,6 @@ OUTPUT_PATH = os.path.abspath(os.path.join(os.getcwd(),
                                            os.pardir,
                                            os.pardir,
                                            os.pardir,
-                                           'output'))
+                                           'output',
+                                           datetime.datetime.now().isoformat()))
 LOGFILENAME = 'logfile.txt'
