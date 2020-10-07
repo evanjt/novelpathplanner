@@ -21,6 +21,13 @@ class RobotDevice():
         self.robot = robot
         self.timestep = int(self.robot.getBasicTimeStep())
         self.wheels = []
+        self.average_density = None
+        self.lidar_num_clusters = None
+        self.last_feature_points = None
+        self.current_target = -1
+        self.scan_counter = -1
+        self.edge_counter = -1
+        self.warning = None
 
     def addLidar(self, lidar3DID,
                  lidarFrontID = None,
@@ -52,7 +59,7 @@ class RobotDevice():
         self.camera = self.robot.getCamera(cameraID)
         self.camera.enable(self.timestep)
         self.focalLength = self.camera.getFocalLength()
-    
+
     def addGPS(self, gpsID):
         self.gps = self.robot.getGPS(gpsID)
         self.gps.enable(self.timestep)
@@ -84,7 +91,7 @@ class RobotDevice():
 
         # Start logging
         self.thread = threading.Thread(target = log.worker,
-                                       args = (self.gps, self.imu,)) # Send in GPS/IMU objects
+                                       args = (self,)) # Send in GPS/IMU objects
         self.thread.start()
 
     # End logging

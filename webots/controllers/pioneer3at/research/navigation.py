@@ -70,14 +70,11 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
     currentBearing = robot_bearing(pioneer3at.imu)
     startingPos = currentPos
     hasMoved = False
-    counter = 0
+    pioneer3at.scan_counter = 0
 
     # Capture a new scan, rotate based on first scan, and write to file
     logging.debug("Acquiring LiDAR scan ...")
-    scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
-                                            pioneer3at.lidar, currentPos,
-                                            currentBearing,
-                                            scan='feature', threshold=threshold)
+    scan = clust.capture_lidar_scene(pioneer3at, scan='feature', threshold=threshold)
 
     # 4D Transformation method using gps and imu for georeferencing scans
     T = np.eye(4)
@@ -90,11 +87,11 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
 
     # Write the transformed scan to file
     lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
-                                        'lidar_feature' + str(i+1) + 'scan' + str(counter+1) + '.xyz')
+                                        'lidar_feature' + str(i+1) + 'scan' + str(pioneer3at.scan_counter+1) + '.xyz')
     clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
 
     # Set the last_scan variable to the last transformed scan and set lastScanpos
-    counter+=1
+    pioneer3at.scan_counter+=1
     lastScanPos = currentPos
 
     # Loop for feature mapping
@@ -115,12 +112,9 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
             const.SCAN_THRESHOLD:
 
             logging.debug("Acquiring LiDAR scan ...")
-            
+
             # Capture a new scan
-            scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
-                                                    pioneer3at.lidar, currentPos,
-                                                    currentBearing,
-                                                    scan='feature', threshold=threshold)
+            scan = clust.capture_lidar_scene(pioneer3at, scan='feature', threshold=threshold)
 
             # 4D Transformation method using gps and imu for georeferencing scans
             T = np.eye(4)
@@ -133,12 +127,12 @@ def lidar_mapping(pioneer3at, target, i, first_scan):
 
             # Write the transformed scan to file
             lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
-                                                'lidar_feature' + str(i+1) + 'scan' + str(counter+1) + '.xyz')
+                                                'lidar_feature' + str(i+1) + 'scan' + str(pioneer3at.scan_counter+1) + '.xyz')
             clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
 
             # Set the last_scan variable to the last transformed scan and set lastScanpos
             lastScanPos = currentPos
-            counter +=1
+            pioneer3at.scan_counter +=1
 
         elif hasMoved and distanceToStart < const.LOOP_THRESHOLD:
             logging.info("Mapping of feature {} complete".format(i+1))
@@ -177,8 +171,8 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
     # Variables for mapping control, as well as adding and indicating additional points along a plane
     mappingFlag = True
     bboxFlag=False
-    edgeCounter = 0
-    scanCounter = 0
+    pioneer3at.edge_counter = 0
+    pioneer3at.scan_counter = 0
     xlength = math.floor((bbox[1]-bbox[0])/const.SCAN_THRESHOLD)
     zlength = math.floor((bbox[3]-bbox[2])/const.SCAN_THRESHOLD)
 
@@ -212,7 +206,7 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
 
     # Save feature mapping locations to file
     with open(os.path.join(const.OUTPUT_PATH, str(featureNumber+1) +
-              'mapping_points' + str(edgeCounter+1) + str(scanCounter+1) +
+              'mapping_points' + str(pioneer3at.edge_counter+1) + str(pioneer3at.scan_counter+1) +
               '.xyz'), 'w', newline='') as outfile:
         csvwriter = csv.writer(outfile)
         for edge in mappingPositions:
@@ -227,14 +221,18 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
         currentPos = robot_position(pioneer3at.gps)
         currentBearing = robot_bearing(pioneer3at.imu)
 
-        logging.debug("Acquiring LiDAR scan ...")
-        
-        # Capture a new scan
-        scan = clust.capture_lidar_scene(pioneer3at.robot, pioneer3at.timestep,
-                                                pioneer3at.lidar, currentPos,
-                                                currentBearing,
-                                                scan='feature', threshold=threshold)
+        logging.debug("Acquiring Image and LiDAR scan ...")
 
+        # Capture a new image and save to file
+        cameraData = pioneer3at.camera.getImage()
+        camera_feature_imagepath = os.path.join(const.OUTPUT_PATH,
+                                            'camera_feature'+ str(featureNumber+1) + \
+                                            'scan' + str(pioneer3at.edge_counter+1) + str(pioneer3at.scan_counter+1) + \
+                                            '.jpeg')
+        pioneer3at.camera.saveImage(camera_feature_imagepath, 100)
+
+        # Capture a new scan
+        scan = clust.capture_lidar_scene(pioneer3at, scan='feature', threshold=threshold)
         # 4D Transformation method using gps and imu for georeferencing scans
         T = np.eye(4)
         axisRotation = np.deg2rad((180 - currentBearing + 360) % 360)
@@ -245,24 +243,24 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
         transformed_scan = scan.transform(T)
 
         # Increment scan counter
-        scanCounter +=1
+        pioneer3at.scan_counter +=1
 
         # Output transformed scan to file
         lidar_feature_csvpath = os.path.join(const.OUTPUT_PATH,
                                             'lidar_feature'+ str(featureNumber+1) + \
-                                            'scan' + str(edgeCounter+1) + str(scanCounter+1) + \
+                                            'scan' + str(pioneer3at.edge_counter+1) + str(pioneer3at.scan_counter+1) + \
                                             '.xyz')
         clust.write_lidar_scene(transformed_scan, path=lidar_feature_csvpath)
 
         logging.debug("Clustering LiDAR scan ...")
-        
+
         # Detect features/clusters within the transformed lidar scan
         features = clust.cluster_points(np.array(transformed_scan.points))
 
         # Warn user if multiple features detected
         if len(features) > 1:
             logging.info("Warning one feature expected but multiple detected when mapping feature {} edge {}"
-                        .format(featureNumber+1, edgeCounter+1))
+                        .format(featureNumber+1, pioneer3at.edge_counter+1))
 
         # Update the feature bbox dimensions based on the most recent scan
         for feature in features:
@@ -287,13 +285,11 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
 
         # Determine if bbox changes indicate additional scans are required
         if math.floor((bbox[1]-bbox[0])/const.SCAN_THRESHOLD) > xlength:
-            logging.info("Feature requires an additional scan(s) along edge {}"
-                        .format(edgeCounter+1))
+            logging.info("Feature requires an additional scan(s) along the x axis")
             bboxFlag=True
             xlength = math.floor((bbox[1]-bbox[0])/const.SCAN_THRESHOLD)
         if math.floor((bbox[3]-bbox[2])/const.SCAN_THRESHOLD) > zlength:
-            logging.info("Feature requires an additional scan(s) along edge {}"
-                        .format(edgeCounter+1))
+            logging.info("Feature requires an additional scan(s) along the y axis")
             bboxFlag=True
             zlength = math.floor((bbox[3]-bbox[2])/const.SCAN_THRESHOLD)
 
@@ -325,7 +321,7 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
 
             # Save feature locations to file
             with open(os.path.join(const.OUTPUT_PATH, str(featureNumber+1) + \
-                    'mapping_points' + str(edgeCounter+1) + str(scanCounter+1) + \
+                    'mapping_points' + str(pioneer3at.edge_counter+1) + str(pioneer3at.scan_counter+1) + \
                     '.xyz'), 'w', newline='') as outfile:
                 csvwriter = csv.writer(outfile)
                 for edge in mappingPositions:
@@ -337,26 +333,26 @@ def camera_mapping(pioneer3at, targets, featureNumber, first_scan):
 
         # Check to see if the final scan has been completed for each edge
         # If complete either prepare for the next scan or set the mappingFlag to end the loop
-        if ((scanBearing == 90 or scanBearing == 270) and scanCounter == zlength+1) or \
-            ((scanBearing == 0 or scanBearing == 180) and scanCounter == xlength+1):
+        if ((scanBearing == 90 or scanBearing == 270) and pioneer3at.scan_counter == zlength+1) or \
+            ((scanBearing == 0 or scanBearing == 180) and pioneer3at.scan_counter == xlength+1):
             logging.info("Mapping of edge {} feature {} complete"
-                        .format(edgeCounter+1, featureNumber+1))
-            scanCounter = 0
-            edgeCounter +=1
-            if edgeCounter == 4:
+                        .format(pioneer3at.edge_counter+1, featureNumber+1))
+            pioneer3at.scan_counter = 0
+            pioneer3at.edge_counter +=1
+            if pioneer3at.edge_counter == 4:
                 logging.info("Mapping of feature {} complete"
                             .format(featureNumber+1))
                 mappingFlag = False
             else:
                 scanBearing = (scanBearing + 270) % 360
                 nav_to_point_PID(pioneer3at,
-                                x_goal = mappingPositions[edgeCounter][scanCounter][0],
-                                y_goal = mappingPositions[edgeCounter][scanCounter][2],
+                                x_goal = mappingPositions[pioneer3at.edge_counter][pioneer3at.scan_counter][0],
+                                y_goal = mappingPositions[pioneer3at.edge_counter][pioneer3at.scan_counter][2],
                                 theta_goal = np.radians(scanBearing), obstacle_detection = False)
         else:
                 nav_to_point_PID(pioneer3at,
-                                x_goal = mappingPositions[edgeCounter][scanCounter][0],
-                                y_goal = mappingPositions[edgeCounter][scanCounter][2],
+                                x_goal = mappingPositions[pioneer3at.edge_counter][pioneer3at.scan_counter][0],
+                                y_goal = mappingPositions[pioneer3at.edge_counter][pioneer3at.scan_counter][2],
                                 theta_goal = np.radians(scanBearing), obstacle_detection = False)
 
 def zero_division(n, d):
@@ -583,8 +579,8 @@ def nav_to_point_PID(pioneer3at, x_goal, y_goal, theta_goal, obstacle_detection 
     y_start = robot_position(pioneer3at.gps)[2]
     theta_start = np.radians(robot_bearing(pioneer3at.imu))
 
-    logging.info("Initial x: {:5.2f} m | y: {:5.2f} m | theta: {:5.2f} deg".format(x_start, y_start, np.degrees(theta_start)))
-    logging.info("Goal    x: {:5.2f} m | y: {:5.2f} m | theta: {:5.2f} deg".format(x_goal, y_goal, np.degrees(theta_goal)))
+    logging.info("Initial x: {:5.2f} m | y: {:5.2f} m | bearing: {:5.2f} deg".format(x_start, y_start, np.degrees(theta_start)))
+    logging.info("Goal    x: {:5.2f} m | y: {:5.2f} m | bearing: {:5.2f} deg".format(x_goal, y_goal, np.degrees(theta_goal)))
     obstacle_flag = False
     traj_list = plan_eta_3_curve(x_start, y_start, theta_start + np.radians(const.TRAJPLANNING_BEARING_OFFSET),
                                  x_goal, y_goal, theta_goal + np.radians(const.TRAJPLANNING_BEARING_OFFSET))

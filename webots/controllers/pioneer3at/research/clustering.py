@@ -15,6 +15,8 @@ import logging
 import numpy as np
 import math
 import tsp
+import pandas as pd
+import scipy
 from sklearn.cluster import DBSCAN
 from sklearn.metrics.pairwise import euclidean_distances
 import open3d as o3d
@@ -34,12 +36,27 @@ def get_targets(robot, timestep, lidar, focalLength, location, point_array):
     clusters = []
 
     logging.debug("Clustering LiDAR scan ...")
-    
+
     # Detect features/clusters within lidar scene
     features = cluster_points(point_array)
 
+    # Test if the scan threshold is small enough to allow image overlap
+    cameraMappingWidth = ((const.SCAN_THRESHOLD)/ \
+            math.tan(math.radians(const.CAMERA_HORIZONTAL_FOV/2)))*2
+    if cameraMappingWidth < const.SCAN_THRESHOLD and const.DEVICE == 'camera':
+        logging.info("Warning: The scanning distance is too large to allow image overlap map")
+        robot.warning = "scandist"
+    # Identify the mapping distance limit for quality data capture
+    verticalDensityMappingDist = (1/math.sqrt(const.POINT_DENSITY))/ \
+        math.tan(math.radians(const.LIDAR_VERTICAL_VOF/const.LIDAR_VERTICAL_RESOLUTION))
+    horizontalDensityMappingDist = (1/math.sqrt(const.POINT_DENSITY))/ \
+        math.tan(math.radians(const.LIDAR_HORIZONTAL_FOV/const.LIDAR_HORIZONTAL_RESOLUTION))
+    # pixelResolutionMappingDist = const.PIXEL_RESOLUTION * (focalLength * const.PIXEL_SIZE)
+
+    dataQualityLimit = min([verticalDensityMappingDist, horizontalDensityMappingDist]) # pixelResolutionMappingDist])
+
     # Obtain the bbox of each cluster
-    # Calculate the optimal mapping distance based on the cluster size
+    # Calculate the optimal mapping distance based on the cluster size and device parameters
     for feature in features:
         xmax = max(feature, key=lambda x: x[0])[0]
         xmin = min(feature, key=lambda x: x[0])[0]
@@ -49,28 +66,25 @@ def get_targets(robot, timestep, lidar, focalLength, location, point_array):
 
         bboxList.append([xmin, xmax, zmin, zmax])
 
-        bottomMappingDist = (const.SCANNER_HEIGHT)/ \
+        bottomLidarMappingDist = (const.SCANNER_HEIGHT)/ \
             math.tan(math.radians(const.LIDAR_VERTICAL_VOF/2))
-        topMappingDist = (ymax)/ \
+        topLidarMappingDist = (ymax)/ \
             math.tan(math.radians(const.LIDAR_VERTICAL_VOF/2))
-        verticalDensityMappingDist = (1/math.sqrt(const.POINT_DENSITY))/ \
-            math.tan(math.radians(const.LIDAR_VERTICAL_VOF/const.LIDAR_VERTICAL_RESOLUTION)) 
-        horizontalDensityMappingDist = (1/math.sqrt(const.POINT_DENSITY))/ \
-            math.tan(math.radians(const.LIDAR_HORIZONTAL_FOV/const.LIDAR_HORIZONTAL_RESOLUTION))
+        bottomCameraMappingDist = (const.CAMERA_HEIGHT)/ \
+            math.tan(math.radians(const.CAMERA_VERTICAL_VOF/2)) + const.CAMERA_OFFSET
+        topCameraMappingDist = (ymax + (const.SCANNER_HEIGHT - const.CAMERA_HEIGHT))/ \
+            math.tan(math.radians(const.CAMERA_VERTICAL_VOF/2)) + const.CAMERA_OFFSET
 
-        
-        dataQualityLimit = min([verticalDensityMappingDist, horizontalDensityMappingDist])
-        
-        mappingDist = max([bottomMappingDist, topMappingDist])
+        lidarMappingDist = max([bottomLidarMappingDist, topLidarMappingDist])
+        cameraMappingDist = max([bottomCameraMappingDist, topCameraMappingDist])
+        mappingDist = max([lidarMappingDist, cameraMappingDist])
 
         if mappingDist > dataQualityLimit:
-            print("Error, poor mapping quality")
-
-        if mappingDist < 3 and dataQualityLimit > 3:
-            mappingDist = 3 
-        
-        #camera
-        cameraMappingDist = (focalLength * (ymax+const.CAMERA_HEIGHT) * const.CAMERA_VERTICAL_RESOLUTION)/((const.CAMERA_VERTICAL_RESOLUTION-20) * const.CAMERA_HEIGHT)
+            mappingDist = const.MAPPINGDISTANCE_WINDOW
+            logging.info("Warning: A feature(s) is too tall to map completely at the specified quality")
+            robot.warning = "tallfeature"
+        elif mappingDist < 3 and dataQualityLimit > 3:
+            mappingDist = const.MAPPINGDISTANCE_WINDOW
 
         if const.DEVICE == "lidar":
             if (xmax - xmin) > (zmax - zmin) and zmax > const.HOME_LOCATION[2]:
@@ -140,45 +154,54 @@ def get_targets(robot, timestep, lidar, focalLength, location, point_array):
 
     return clusters[1:], targets[1:]
 
-def capture_lidar_scene(robot, timestep, lidar_device, location, bearing,
-                        method='w', scan='full', threshold=20):
+def capture_lidar_scene(robot, method='w', scan='full', threshold=20, seeing_buffer = 2):
 
     point_list = []
 
     # Capture lidar data
-    robot.step(timestep)
-    cloud = lidar_device.getPointCloud()
+    robot.robot.step(robot.timestep)
+    cloud = robot.lidar.getPointCloud()
 
     # Filter the lidar point cloud
     for row in cloud:
-
         distance = math.sqrt(row.x**2 + row.y**2 + row.z**2)
 
         if scan == 'feature' and const.DEVICE == 'lidar':
             if row.y > -0.4 and row.y < 4 \
                 and row.x < 0 and row.z < 4 and row.z > -4 \
-                and distance < threshold + 4:
+                and distance < threshold + seeing_buffer:
                 point_list.append((row.x, row.y, row.z))
         elif scan == 'feature' and const.DEVICE == 'camera':
             if row.y > -0.4 and row.y < 4 \
                 and row.z < 0 and row.x < 4 and row.x > -4 \
-                and distance < threshold + 4:
+                and distance < threshold + seeing_buffer:
                 point_list.append((row.x, row.y, row.z))
         else:
-            if row.y > -0.4 and row.y < 4 and distance < threshold + 4:
+            if row.y > -0.4 and row.y < 4 and distance < threshold + seeing_buffer:
                 point_list.append((row.x, row.y, row.z))
 
     logging.info("Captured {} points in LiDAR scene".format(len(point_list)))
 
-    return convert_to_o3d(point_list)
+    # Filter outlier points
+    xyz = filter_points(np.array(point_list))
+
+    o3dpoints = convert_to_o3d(xyz)
+
+    ''' Gets the quality of the scanned lidar, sends it to a variable in the robot's
+        class, and if this variable changes, the logger detects it and writes to the
+        coordinates file then resets it - How kind of it :)
+    '''
+    if scan == 'feature':
+        get_lidar_quality(o3dpoints, robot)
+
+    return o3dpoints
 
 def convert_to_o3d(point_list):
 
-    # Filter and convert points to open 3D point cloud
-    xyz = filter_points(np.array(point_list))
+    # Convert points to open 3D point cloud
 
     pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(xyz)
+    pcd.points = o3d.utility.Vector3dVector(point_list)
 
     return pcd
 
@@ -231,3 +254,33 @@ def filter_points(df, k=50, threshold=1):
 
 
     return df[abs(tnn_distance - np.mean(tnn_distance)) < threshold * np.std(tnn_distance)]
+
+def get_lidar_quality(pcd, robot):
+    ''' Uses the input scan (which happens on a subset of lidar when next to a feature)
+        to determine some quality measurements to then append to the output coordinates
+        logger file.
+
+        In: Point cloud in o3d format
+            Robot's class
+
+        Returns:
+            Nothing -- Writes the attributes to the class for the logger to pick up
+    '''
+    plane_model, inliers = pcd.segment_plane(distance_threshold=0.01,
+                                             ransac_n=3,
+                                             num_iterations=1000)
+    inlier_cloud = pcd.select_by_index(inliers)
+    np_inlier = np.array(inlier_cloud.points)
+    clustering = DBSCAN(eps=0.5, min_samples=10).fit(np_inlier)
+    total_area = 0
+    for cluster in np.unique(clustering.labels_):
+        subX = np_inlier[clustering.labels_ == cluster]
+        convex_hull = scipy.spatial.ConvexHull(subX)
+        total_area += convex_hull.area
+        logging.info("[Cluster {:2d}] Area: {:.2f}m^2 | Points: {:5d} | Point density: {:.2f} | Meets threshold: {}".format(
+            cluster, convex_hull.area, subX.shape[0],
+            subX.shape[0]/convex_hull.area, subX.shape[0]/convex_hull.area > const.POINT_DENSITY))
+    average_density = np_inlier.shape[0]/total_area
+    logging.info("             Avg density: {:.2f}m^2".format(average_density))
+    robot.average_density = average_density
+    robot.lidar_num_clusters = len(np.unique(clustering.labels_))

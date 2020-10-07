@@ -23,25 +23,31 @@ LIDAR_VERTICAL_VOF = 90
 LIDAR_HORIZONTAL_FOV = 360
 LIDAR_VERTICAL_RESOLUTION = 180
 LIDAR_HORIZONTAL_RESOLUTION = 720
-SCANNER_HEIGHT = 0.5
+SCANNER_HEIGHT = 0.6
 
 # Camera parameters
-CAMERA_HORIZONTAL_FOV = 66
+CAMERA_HORIZONTAL_FOV = 90
 CAMERA_VERTICAL_RESOLUTION = 488
 CAMERA_HORIZONTAL_RESOLUTION = 648
 CAMERA_VERTICAL_VOF = math.degrees(2 * math.atan(math.tan(math.radians(CAMERA_HORIZONTAL_FOV) * 0.5) * (CAMERA_VERTICAL_RESOLUTION / CAMERA_HORIZONTAL_RESOLUTION)))
-CAMERA_HEIGHT = 0.2
+CAMERA_HEIGHT = 0.3
+CAMERA_OFFSET = 0.2
+# PIXEL_SIZE = ?
+# PIXEL_RESOLUTION = 0.06
 
 # Required point density per square meter
 POINT_DENSITY = 250
-PIXEL_DENSITY = 250
 
 # Define the mapping mode
-DEVICE = 'lidar'
-#DEVICE = 'camera'
+#DEVICE = 'lidar'
+DEVICE = 'camera'
 
 # Define the required proximity (m) from a target point to be a successful navigation
-MAPPING_DISTANCE = 1
+#MAPPING_DISTANCE = 3 # Doesn't get used anymore
+
+# If mapping distance too low, robot may hit wall, this forces it backwards by x metres
+# but also forces it forwards to prevent it from being too far away (if value too high)
+MAPPINGDISTANCE_WINDOW = 3
 
 # Deinfe the required buffer range (m) for mapping to occur
 MAPPING_BUFFER = 0.5

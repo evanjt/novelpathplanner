@@ -8,7 +8,7 @@
                 Evan Thomas
 '''
 
-from controller import Robot
+from controller import Supervisor
 import math
 import logging
 import os
@@ -22,8 +22,9 @@ import research.navigation as nav
 import research.logger as log
 from research.classes import RobotDevice
 
+
 # Define robot and devices
-pioneer3at = RobotDevice(Robot())
+pioneer3at = RobotDevice(Supervisor())
 pioneer3at.addLidar('lidar', 'HokuyoFront')
 pioneer3at.addCamera('camera')
 pioneer3at.addGPS('gps')
@@ -32,16 +33,19 @@ pioneer3at.addWheels(['front left wheel', 'front right wheel',
                       'back left wheel', 'back right wheel'])
 pioneer3at.startLogging()
 
+#import glob, sys
+#print("worldfiles")
+#for filename in glob.iglob("../../worlds/trail*.wbt"):
+    #pioneer3at.robot.worldLoad(filename)
+    #break
+
 # Take the first simulation step
 pioneer3at.robot.step(pioneer3at.timestep)
 
 logging.info("Pioneer is scanning surrounding area for features")
 
 # Scan surrounding area and write the scan to file
-first_scan = clust.capture_lidar_scene(pioneer3at.robot,
-                            pioneer3at.timestep,
-                            pioneer3at.lidar,
-                            const.HOME_LOCATION, 0)
+first_scan = clust.capture_lidar_scene(pioneer3at, const.HOME_LOCATION, 0)
 clust.write_lidar_scene(first_scan)
 
 # Identify features from the initial scan and write to file
@@ -59,10 +63,10 @@ for ind, val in enumerate(clusters):
 logging.info("{} features found -- Beginning survey".format(len(targets)-1))
 
 # Loop through the detected target features
-# Navigate to and map each target feature whilst avoiding obstacles 
+# Navigate to and map each target feature whilst avoiding obstacles
 while pioneer3at.robot.step(pioneer3at.timestep) != -1:
     for i, target in enumerate(targets):
-
+        pioneer3at.current_target = i
         logging.info("Heading to feature {}".format(i+1))
 
         obstacle_flag = True # Test obstacles before start
