@@ -108,5 +108,5 @@ OUTPUT_PATH = os.path.abspath(os.path.join(os.getcwd(),
                                            os.pardir,
                                            os.pardir,
                                            'output',
-                                           datetime.datetime.now().isoformat()))
+                                           datetime.datetime.now().isoformat().replace(":",".")))
 LOGFILENAME = 'logfile.txt'
