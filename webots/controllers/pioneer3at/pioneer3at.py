@@ -99,7 +99,7 @@ while pioneer3at.robot.step(pioneer3at.timestep) != -1:
     logging.info("Survey complete")
     nav.set_velocity(pioneer3at.wheels, 0, 0)
     pioneer3at.endLogging()
-
-
     break
+# Generate summary off of the logged coordinates.json file
+print("Summary stats for\n", const.OUTPUT_PATH)
 sumstat.execute_summary(const.OUTPUT_PATH)
