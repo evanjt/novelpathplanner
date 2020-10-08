@@ -154,7 +154,7 @@ def get_targets(robot, timestep, lidar, focalLength, location, point_array):
 
     return clusters[1:], targets[1:]
 
-def capture_lidar_scene(robot, method='w', scan='full', threshold=20, seeing_buffer = 4):
+def capture_lidar_scene(robot, method='w', scan='full', threshold=20, seeing_buffer = 5):
 
     point_list = []
 
@@ -245,7 +245,7 @@ def cluster_points(array):
 
     return features
 
-def filter_points(df, k=50, threshold=1):
+def filter_points(df, k=50, threshold=2):
 
     # Nearest neighbours outlier setup
     knn = NearestNeighbors(n_neighbors=k)
