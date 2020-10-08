@@ -192,7 +192,11 @@ def capture_lidar_scene(robot, method='w', scan='full', threshold=20, seeing_buf
         coordinates file then resets it - How kind of it :)
     '''
     if scan == 'feature':
-        get_lidar_quality(o3dpoints, robot)
+        try:
+            get_lidar_quality(o3dpoints, robot)
+        except:
+            logging.info("skipped a problematic scan")
+            pass
 
     return o3dpoints
 
@@ -271,7 +275,7 @@ def get_lidar_quality(pcd, robot):
                                              num_iterations=1000)
     inlier_cloud = pcd.select_by_index(inliers)
     np_inlier = np.array(inlier_cloud.points)
-    clustering = DBSCAN(eps=0.5, min_samples=10).fit(np_inlier)
+    clustering = DBSCAN(eps=2, min_samples=50).fit(np_inlier)
     total_area = 0
     for cluster in np.unique(clustering.labels_):
         subX = np_inlier[clustering.labels_ == cluster]
